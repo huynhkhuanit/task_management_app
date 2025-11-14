@@ -5,6 +5,7 @@ import '../models/task_model.dart';
 import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import 'tasks_screen.dart';
+import 'add_task_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -242,7 +243,11 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: _currentIndex == 1
           ? FloatingActionButton(
               onPressed: () {
-                // TODO: Add new task
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AddTaskScreen(),
+                  ),
+                );
               },
               backgroundColor: AppColors.primary,
               elevation: 0,
@@ -255,7 +260,11 @@ class _HomeScreenState extends State<HomeScreen> {
           : _currentIndex == 0
               ? FloatingActionButton(
                   onPressed: () {
-                    // TODO: Add new task
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const AddTaskScreen(),
+                      ),
+                    );
                   },
                   backgroundColor: AppColors.primary,
                   elevation: 0,

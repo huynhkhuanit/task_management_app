@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import 'add_task_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   final bool showBottomNavigationBar;
@@ -473,7 +474,11 @@ class _TasksScreenState extends State<TasksScreen> {
           : null,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // TODO: Add new task
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const AddTaskScreen(),
+            ),
+          );
         },
         backgroundColor: AppColors.primary,
         elevation: 0,
