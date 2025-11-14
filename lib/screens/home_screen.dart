@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import 'tasks_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -51,150 +52,184 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Widget _buildHomeContent() {
+    return SafeArea(
+      child: Column(
+        children: [
+          // Top Header
+          Padding(
+            padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+            child: Row(
+              children: [
+                // Avatar
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8D5C4),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: AppColors.black,
+                    size: 30,
+                  ),
+                ),
+                const SizedBox(width: AppDimensions.paddingMedium),
+                // Greeting
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getGreeting()}, An!',
+                        style: R.styles.heading2(
+                          color: AppColors.black,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                // Notification icon
+                IconButton(
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    color: AppColors.black,
+                  ),
+                  onPressed: () {
+                    // TODO: Handle notification
+                  },
+                ),
+              ],
+            ),
+          ),
+          // Content
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.paddingLarge,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Calendar
+                  const CalendarWidget(),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                  // Task Summary Cards
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Tổng task',
+                          '25',
+                          AppColors.black,
+                        ),
+                      ),
+                      const SizedBox(width: AppDimensions.paddingMedium),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Hoàn thành',
+                          '15',
+                          AppColors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimensions.paddingMedium),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Đang chờ',
+                          '5',
+                          AppColors.black,
+                        ),
+                      ),
+                      const SizedBox(width: AppDimensions.paddingMedium),
+                      Expanded(
+                        child: _buildSummaryCard(
+                          'Quá hạn',
+                          '5',
+                          AppColors.error,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimensions.paddingXLarge),
+                  // Today's Tasks Section
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Công việc hôm nay',
+                        style: R.styles.heading2(
+                          color: AppColors.black,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _currentIndex = 1; // Switch to Tasks tab
+                          });
+                        },
+                        child: Text(
+                          'Xem tất cả',
+                          style: R.styles.body(
+                            size: 14,
+                            weight: FontWeight.w500,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                  // Task List
+                  ..._todayTasks.map((task) => _buildTaskCard(task)),
+                  const SizedBox(height: AppDimensions.paddingXLarge),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.onboardingBackground,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Top Header
-            Padding(
-              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-              child: Row(
-                children: [
-                  // Avatar
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFE8D5C4),
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(
-                      Icons.person,
-                      color: AppColors.black,
-                      size: 30,
-                    ),
-                  ),
-                  const SizedBox(width: AppDimensions.paddingMedium),
-                  // Greeting
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${_getGreeting()}, An!',
-                          style: R.styles.heading2(
-                            color: AppColors.black,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Notification icon
-                  IconButton(
-                    icon: const Icon(
-                      Icons.notifications_outlined,
-                      color: AppColors.black,
-                    ),
-                    onPressed: () {
-                      // TODO: Handle notification
-                    },
-                  ),
-                ],
+      body: IndexedStack(
+        index: _currentIndex,
+        children: [
+          // Home screen (index 0)
+          _buildHomeContent(),
+          // Tasks screen (index 1)
+          const TasksScreen(showBottomNavigationBar: false),
+          // Statistics screen (index 2) - TODO: Create later
+          Center(
+            child: Text(
+              'Thống kê',
+              style: R.styles.heading2(
+                color: AppColors.black,
+                weight: FontWeight.w700,
               ),
             ),
-            // Content
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.paddingLarge,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Calendar
-                    const CalendarWidget(),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-                    // Task Summary Cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryCard(
-                            'Tổng task',
-                            '25',
-                            AppColors.black,
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.paddingMedium),
-                        Expanded(
-                          child: _buildSummaryCard(
-                            'Hoàn thành',
-                            '15',
-                            AppColors.black,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.paddingMedium),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildSummaryCard(
-                            'Đang chờ',
-                            '5',
-                            AppColors.black,
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.paddingMedium),
-                        Expanded(
-                          child: _buildSummaryCard(
-                            'Quá hạn',
-                            '5',
-                            AppColors.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.paddingXLarge),
-                    // Today's Tasks Section
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Công việc hôm nay',
-                          style: R.styles.heading2(
-                            color: AppColors.black,
-                            weight: FontWeight.w700,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            // TODO: Navigate to all tasks
-                          },
-                          child: Text(
-                            'Xem tất cả',
-                            style: R.styles.body(
-                              size: 14,
-                              weight: FontWeight.w500,
-                              color: AppColors.primary,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-                    // Task List
-                    ..._todayTasks.map((task) => _buildTaskCard(task)),
-                    const SizedBox(height: AppDimensions.paddingXLarge),
-                  ],
-                ),
+          ),
+          // Profile screen (index 3) - TODO: Create later
+          Center(
+            child: Text(
+              'Hồ sơ',
+              style: R.styles.heading2(
+                color: AppColors.black,
+                weight: FontWeight.w700,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
         currentIndex: _currentIndex,
@@ -202,16 +237,25 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _currentIndex = index;
           });
-          // TODO: Navigate to different screens
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Add new task
-        },
-        backgroundColor: AppColors.primary,
-        child: const Icon(Icons.add, color: AppColors.white),
-      ),
+      floatingActionButton: _currentIndex == 1
+          ? FloatingActionButton(
+              onPressed: () {
+                // TODO: Add new task
+              },
+              backgroundColor: AppColors.primary,
+              child: const Icon(Icons.add, color: AppColors.white),
+            )
+          : _currentIndex == 0
+              ? FloatingActionButton(
+                  onPressed: () {
+                    // TODO: Add new task
+                  },
+                  backgroundColor: AppColors.primary,
+                  child: const Icon(Icons.add, color: AppColors.white),
+                )
+              : null,
     );
   }
 

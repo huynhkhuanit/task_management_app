@@ -1,9 +1,14 @@
-import 'package:flutter/material.dart';
-
 enum TaskStatus {
   pending,
   completed,
   overdue,
+}
+
+enum TaskPriority {
+  high,
+  medium,
+  low,
+  urgent,
 }
 
 class Task {
@@ -13,6 +18,8 @@ class Task {
   final DateTime time;
   final TaskStatus status;
   final DateTime? dueDate;
+  final TaskPriority priority;
+  final List<String> tags;
 
   Task({
     required this.id,
@@ -21,6 +28,8 @@ class Task {
     required this.time,
     this.status = TaskStatus.pending,
     this.dueDate,
+    this.priority = TaskPriority.medium,
+    this.tags = const [],
   });
 }
 
