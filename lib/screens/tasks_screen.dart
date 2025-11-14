@@ -477,6 +477,9 @@ class _TasksScreenState extends State<TasksScreen> {
         },
         backgroundColor: AppColors.primary,
         elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        ),
         child: const Icon(Icons.add, color: AppColors.white),
       ),
     );

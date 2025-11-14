@@ -246,6 +246,10 @@ class _HomeScreenState extends State<HomeScreen> {
               },
               backgroundColor: AppColors.primary,
               elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusLarge),
+              ),
               child: const Icon(Icons.add, color: AppColors.white),
             )
           : _currentIndex == 0
@@ -255,6 +259,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                   backgroundColor: AppColors.primary,
                   elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(AppDimensions.borderRadiusLarge),
+                  ),
                   child: const Icon(Icons.add, color: AppColors.white),
                 )
               : null,
