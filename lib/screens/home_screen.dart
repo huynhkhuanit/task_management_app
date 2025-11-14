@@ -245,6 +245,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 // TODO: Add new task
               },
               backgroundColor: AppColors.primary,
+              elevation: 0,
               child: const Icon(Icons.add, color: AppColors.white),
             )
           : _currentIndex == 0
@@ -253,6 +254,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     // TODO: Add new task
                   },
                   backgroundColor: AppColors.primary,
+                  elevation: 0,
                   child: const Icon(Icons.add, color: AppColors.white),
                 )
               : null,
@@ -295,7 +297,8 @@ class _HomeScreenState extends State<HomeScreen> {
     final minute = task.time.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
-    final timeString = '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
+    final timeString =
+        '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
 
     return Container(
       margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
@@ -317,9 +320,8 @@ class _HomeScreenState extends State<HomeScreen> {
                     title: task.title,
                     project: task.project,
                     time: task.time,
-                    status: isCompleted
-                        ? TaskStatus.pending
-                        : TaskStatus.completed,
+                    status:
+                        isCompleted ? TaskStatus.pending : TaskStatus.completed,
                   );
                 }
               });
@@ -331,9 +333,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 shape: BoxShape.circle,
                 color: isCompleted ? AppColors.primary : Colors.transparent,
                 border: Border.all(
-                  color: isCompleted
-                      ? AppColors.primary
-                      : AppColors.greyLight,
+                  color: isCompleted ? AppColors.primary : AppColors.greyLight,
                   width: 2,
                 ),
               ),
@@ -354,15 +354,17 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 Text(
                   task.title,
-                  style: R.styles.body(
-                    size: 16,
-                    weight: FontWeight.w500,
-                    color: AppColors.black,
-                  ).copyWith(
-                    decoration: isCompleted
-                        ? TextDecoration.lineThrough
-                        : TextDecoration.none,
-                  ),
+                  style: R.styles
+                      .body(
+                        size: 16,
+                        weight: FontWeight.w500,
+                        color: AppColors.black,
+                      )
+                      .copyWith(
+                        decoration: isCompleted
+                            ? TextDecoration.lineThrough
+                            : TextDecoration.none,
+                      ),
                 ),
                 const SizedBox(height: 4),
                 Text(

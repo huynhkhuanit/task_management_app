@@ -20,6 +20,7 @@ class _TasksScreenState extends State<TasksScreen> {
   int _currentIndex = 1; // Tasks tab is selected
   int _selectedCategoryIndex = 0; // "Tất cả" is selected
   final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   final List<String> _categories = [
     'Tất cả',
@@ -215,181 +216,248 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _searchFocusNode.addListener(() {
+      setState(() {}); // Update UI when focus changes
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Header
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.paddingLarge,
-                vertical: AppDimensions.paddingMedium,
-              ),
-              child: Row(
-                children: [
-                  // Grid icon
-                  IconButton(
-                    icon: const Icon(
-                      Icons.grid_view,
-                      color: AppColors.black,
-                      size: AppDimensions.iconMedium,
-                    ),
-                    onPressed: () {
-                      // TODO: Handle menu
-                    },
-                  ),
-                  // Title
-                  Expanded(
-                    child: Text(
-                      'Công việc của tôi',
-                      style: R.styles.heading2(
-                        color: AppColors.black,
-                        weight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  // Profile icon
-                  IconButton(
-                    icon: const Icon(
-                      Icons.person,
-                      color: AppColors.black,
-                      size: AppDimensions.iconMedium,
-                    ),
-                    onPressed: () {
-                      // TODO: Navigate to profile
-                    },
-                  ),
-                ],
-              ),
-            ),
-            // Search and Filter Bar
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.paddingLarge,
-                vertical: AppDimensions.paddingSmall,
-              ),
-              child: Row(
-                children: [
-                  // Search bar
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.greyLight,
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusMedium,
-                        ),
-                      ),
-                      child: TextField(
-                        controller: _searchController,
-                        onChanged: (_) => setState(() {}),
-                        decoration: InputDecoration(
-                          hintText: 'Tìm kiếm công việc...',
-                          hintStyle: R.styles.body(
-                            size: 14,
-                            color: AppColors.grey,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.search,
-                            color: AppColors.grey,
-                            size: AppDimensions.iconSmall,
-                          ),
-                          border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: AppDimensions.paddingMedium,
-                            vertical: AppDimensions.paddingMedium,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppDimensions.paddingSmall),
-                  // Filter button
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: AppColors.primaryLight.withOpacity(0.2),
-                      shape: BoxShape.circle,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.tune,
-                        color: AppColors.primary,
-                        size: AppDimensions.iconSmall,
-                      ),
-                      onPressed: () {
-                        // TODO: Show filter dialog
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Category Tabs
-            Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppDimensions.paddingLarge,
-                vertical: AppDimensions.paddingSmall,
-              ),
-              child: Row(
-                children: List.generate(
-                  _categories.length,
-                  (index) => Expanded(
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedCategoryIndex = index;
-                        });
-                      },
-                      child: Column(
-                        children: [
-                          Text(
-                            _categories[index],
-                            style: R.styles.body(
-                              size: 14,
-                              weight: _selectedCategoryIndex == index
-                                  ? FontWeight.w700
-                                  : FontWeight.w400,
-                              color: _selectedCategoryIndex == index
-                                  ? AppColors.black
-                                  : AppColors.grey,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          if (_selectedCategoryIndex == index)
-                            Container(
-                              height: 3,
-                              decoration: BoxDecoration(
-                                color: AppColors.primary,
-                                borderRadius: BorderRadius.circular(2),
-                              ),
-                            )
-                          else
-                            const SizedBox(height: 3),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            // Task List
-            Expanded(
-              child: ListView.builder(
+      backgroundColor: const Color(0xFFF7F9FC),
+      body: GestureDetector(
+        onTap: () {
+          // Unfocus search bar when tapping outside
+          _searchFocusNode.unfocus();
+        },
+        child: SafeArea(
+          child: Column(
+            children: [
+              // Header
+              Padding(
                 padding: const EdgeInsets.symmetric(
                   horizontal: AppDimensions.paddingLarge,
                   vertical: AppDimensions.paddingMedium,
                 ),
-                itemCount: _filteredTasks.length,
-                itemBuilder: (context, index) {
-                  final task = _filteredTasks[index];
-                  return _buildTaskCard(task);
-                },
+                child: Row(
+                  children: [
+                    // Grid icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.grid_view,
+                        color: AppColors.black,
+                        size: AppDimensions.iconMedium,
+                      ),
+                      onPressed: () {
+                        // TODO: Handle menu
+                      },
+                    ),
+                    // Title
+                    Expanded(
+                      child: Text(
+                        'Công việc của tôi',
+                        style: R.styles.heading2(
+                          color: AppColors.black,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    // Profile icon
+                    IconButton(
+                      icon: const Icon(
+                        Icons.person,
+                        color: AppColors.black,
+                        size: AppDimensions.iconMedium,
+                      ),
+                      onPressed: () {
+                        // TODO: Navigate to profile
+                      },
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+              // Search and Filter Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.paddingLarge,
+                  vertical: AppDimensions.paddingSmall,
+                ),
+                child: Row(
+                  children: [
+                    // Search bar
+                    Expanded(
+                      child: Container(
+                        height: 48,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppDimensions.paddingSmall,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.greyLight,
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                          border: _searchFocusNode.hasFocus
+                              ? Border.all(
+                                  color: AppColors.primary,
+                                  width: 1.5,
+                                )
+                              : null,
+                        ),
+                        child: TextField(
+                          controller: _searchController,
+                          focusNode: _searchFocusNode,
+                          onChanged: (_) => setState(() {}),
+                          textAlignVertical: TextAlignVertical.center,
+                          style: R.styles.body(
+                            size: 14,
+                            color: AppColors.black,
+                          ),
+                          decoration: InputDecoration(
+                            hintText: 'Tìm kiếm công việc...',
+                            hintStyle: R.styles.body(
+                              size: 14,
+                              color: AppColors.grey,
+                            ),
+                            prefixIcon: const Icon(
+                              Icons.search,
+                              color: AppColors.grey,
+                              size: 18,
+                            ),
+                            prefixIconConstraints: const BoxConstraints(
+                              minWidth: 40,
+                              minHeight: 48,
+                            ),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            disabledBorder: InputBorder.none,
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            isDense: false,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.paddingSmall),
+                    // Filter button
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryLight.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        icon: const Icon(
+                          Icons.tune,
+                          color: AppColors.primary,
+                          size: AppDimensions.iconSmall,
+                        ),
+                        onPressed: () {
+                          // TODO: Show filter dialog
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Category Tabs
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppDimensions.paddingLarge,
+                  vertical: AppDimensions.paddingSmall,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final tabWidth = constraints.maxWidth / _categories.length;
+                    return Column(
+                      children: [
+                        Row(
+                          children: List.generate(
+                            _categories.length,
+                            (index) => Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  setState(() {
+                                    _selectedCategoryIndex = index;
+                                  });
+                                },
+                                child: Column(
+                                  children: [
+                                    AnimatedDefaultTextStyle(
+                                      duration:
+                                          const Duration(milliseconds: 200),
+                                      curve: Curves.easeInOut,
+                                      style: R.styles.body(
+                                        size: 14,
+                                        weight: _selectedCategoryIndex == index
+                                            ? FontWeight.w700
+                                            : FontWeight.w400,
+                                        color: _selectedCategoryIndex == index
+                                            ? AppColors.black
+                                            : AppColors.grey,
+                                      ),
+                                      child: Text(_categories[index]),
+                                    ),
+                                    const SizedBox(height: 7),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Stack(
+                          children: [
+                            Container(
+                              height: 3,
+                              color: Colors.transparent,
+                            ),
+                            AnimatedPositioned(
+                              duration: const Duration(milliseconds: 300),
+                              curve: Curves.easeInOut,
+                              left: _selectedCategoryIndex * tabWidth,
+                              bottom: 0,
+                              width: tabWidth,
+                              height: 3,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              // Task List
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.paddingLarge,
+                    vertical: AppDimensions.paddingMedium,
+                  ),
+                  itemCount: _filteredTasks.length,
+                  itemBuilder: (context, index) {
+                    final task = _filteredTasks[index];
+                    return _buildTaskCard(task);
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: widget.showBottomNavigationBar
@@ -408,6 +476,7 @@ class _TasksScreenState extends State<TasksScreen> {
           // TODO: Add new task
         },
         backgroundColor: AppColors.primary,
+        elevation: 0,
         child: const Icon(Icons.add, color: AppColors.white),
       ),
     );
