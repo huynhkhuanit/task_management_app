@@ -89,8 +89,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     if (_selectedDate == null) return 'Hôm nay';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
-    final selected = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day);
-    
+    final selected =
+        DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day);
+
     if (selected == today) {
       return 'Hôm nay';
     } else if (selected == today.add(const Duration(days: 1))) {
@@ -171,7 +172,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 if (controller.text.isNotEmpty) {
                   setState(() {
                     _subTasks.add(controller.text);
-                    _subTaskControllers.add(TextEditingController(text: controller.text));
+                    _subTaskControllers
+                        .add(TextEditingController(text: controller.text));
                   });
                   controller.dispose();
                   Navigator.of(context).pop();
@@ -299,8 +301,10 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: const Color(0xFFF7F9FC),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.close, color: AppColors.black),
           onPressed: () => Navigator.of(context).pop(),
@@ -380,7 +384,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                             },
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
-                          
+
                           // Date & Time
                           _buildTaskDetailItem(
                             icon: Icons.calendar_today_outlined,
@@ -408,7 +412,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                             onTap: () => _selectDateAndTime(context),
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
-                          
+
                           // Priority
                           Padding(
                             padding: const EdgeInsets.symmetric(
@@ -422,7 +426,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                   color: AppColors.grey,
                                   size: 20,
                                 ),
-                                const SizedBox(width: AppDimensions.paddingMedium),
+                                const SizedBox(
+                                    width: AppDimensions.paddingMedium),
                                 Expanded(
                                   child: Text(
                                     'Mức độ ưu tiên',
@@ -449,14 +454,16 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                     'Thấp',
                                   ),
                                 ),
-                                const SizedBox(width: AppDimensions.paddingSmall),
+                                const SizedBox(
+                                    width: AppDimensions.paddingSmall),
                                 Expanded(
                                   child: _buildPriorityPillButton(
                                     TaskPriority.medium,
                                     'Trung bình',
                                   ),
                                 ),
-                                const SizedBox(width: AppDimensions.paddingSmall),
+                                const SizedBox(
+                                    width: AppDimensions.paddingSmall),
                                 Expanded(
                                   child: _buildPriorityPillButton(
                                     TaskPriority.high,
@@ -467,7 +474,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                             ),
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
-                          
+
                           // Attach file
                           _buildTaskDetailItem(
                             icon: Icons.attach_file,
@@ -478,7 +485,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                             },
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
-                          
+
                           // Set Reminder
                           _buildTaskDetailItem(
                             icon: Icons.notifications_outlined,
@@ -491,6 +498,14 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                 });
                               },
                               activeColor: AppColors.primary,
+                              inactiveThumbColor: AppColors.primary,
+                              inactiveTrackColor: AppColors.greyLight,
+                              trackOutlineColor:
+                                  MaterialStateProperty.resolveWith<Color>(
+                                (Set<MaterialState> states) {
+                                  return Colors.transparent;
+                                },
+                              ),
                             ),
                           ),
                         ],
@@ -522,8 +537,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       child: Column(
                         children: [
                           if (_subTasks.isEmpty) ...[
-                            _buildSubTaskItem('Công việc con đầu tiên', false, 0, isDefault: true),
-                            _buildSubTaskItem('Công việc con thứ hai', false, 1, isDefault: true),
+                            _buildSubTaskItem(
+                                'Công việc con đầu tiên', false, 0,
+                                isDefault: true),
+                            _buildSubTaskItem('Công việc con thứ hai', false, 1,
+                                isDefault: true),
                           ] else
                             ...List.generate(_subTasks.length, (index) {
                               return _buildSubTaskItem(
@@ -545,7 +563,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                     color: AppColors.primary,
                                     size: 20,
                                   ),
-                                  const SizedBox(width: AppDimensions.paddingSmall),
+                                  const SizedBox(
+                                      width: AppDimensions.paddingSmall),
                                   Text(
                                     'Thêm công việc con',
                                     style: R.styles.body(
@@ -564,10 +583,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                 ),
               ),
             ),
-            
+
             // Bottom Buttons
             Container(
-              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.paddingLarge,
+                vertical: AppDimensions.paddingMedium,
+              ),
               decoration: BoxDecoration(
                 color: AppColors.white,
                 border: Border(
@@ -584,8 +606,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       onPressed: () => Navigator.of(context).pop(),
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
-                          vertical: AppDimensions.paddingMedium,
+                          vertical: AppDimensions.paddingSmall,
                         ),
+                        minimumSize: const Size(0, 44),
                         side: const BorderSide(
                           color: AppColors.greyLight,
                           width: 1,
@@ -615,8 +638,9 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
                         padding: const EdgeInsets.symmetric(
-                          vertical: AppDimensions.paddingMedium,
+                          vertical: AppDimensions.paddingSmall,
                         ),
+                        minimumSize: const Size(0, 44),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(
                             AppDimensions.borderRadiusMedium,
@@ -673,7 +697,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  Widget _buildSubTaskItem(String text, bool isChecked, int index, {bool isDefault = false}) {
+  Widget _buildSubTaskItem(String text, bool isChecked, int index,
+      {bool isDefault = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(
         vertical: AppDimensions.paddingSmall,
