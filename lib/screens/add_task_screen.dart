@@ -12,22 +12,36 @@ class AddTaskScreen extends StatefulWidget {
 
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
-  final TextEditingController _projectController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  String? _selectedCategory;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
-  TaskPriority _selectedPriority = TaskPriority.medium;
+  TaskPriority _selectedPriority = TaskPriority.low;
+  bool _reminderEnabled = true;
+  final List<String> _subTasks = [];
+  final List<TextEditingController> _subTaskControllers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = DateTime.now();
+    _selectedTime = const TimeOfDay(hour: 10, minute: 0);
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
-    _projectController.dispose();
+    _descriptionController.dispose();
+    for (var controller in _subTaskControllers) {
+      controller.dispose();
+    }
     super.dispose();
   }
 
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDateAndTime(BuildContext context) async {
+    final DateTime? pickedDate = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
+      initialDate: _selectedDate ?? DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
       builder: (context, child) {
@@ -44,75 +58,134 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         );
       },
     );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: AppColors.white,
-              surface: AppColors.white,
-              onSurface: AppColors.black,
+    if (pickedDate != null) {
+      final TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: _selectedTime ?? TimeOfDay.now(),
+        builder: (context, child) {
+          return Theme(
+            data: Theme.of(context).copyWith(
+              colorScheme: const ColorScheme.light(
+                primary: AppColors.primary,
+                onPrimary: AppColors.white,
+                surface: AppColors.white,
+                onSurface: AppColors.black,
+              ),
             ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
+            child: child!,
+          );
+        },
+      );
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDate = pickedDate;
+          _selectedTime = pickedTime;
+        });
+      }
     }
   }
 
-  String _formatDate(DateTime? date) {
-    if (date == null) return '';
-    return '${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}';
+  String _getDateDisplay() {
+    if (_selectedDate == null) return 'Hôm nay';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(_selectedDate!.year, _selectedDate!.month, _selectedDate!.day);
+    
+    if (selected == today) {
+      return 'Hôm nay';
+    } else if (selected == today.add(const Duration(days: 1))) {
+      return 'Ngày mai';
+    } else {
+      return '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}';
+    }
   }
 
-  String _formatTime(TimeOfDay? time) {
-    if (time == null) return '';
-    return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  String _getTimeDisplay() {
+    if (_selectedTime == null) return '10:00 AM';
+    final hour = _selectedTime!.hour;
+    final minute = _selectedTime!.minute.toString().padLeft(2, '0');
+    final period = hour >= 12 ? 'PM' : 'AM';
+    final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
+    return '$displayHour:$minute $period';
   }
 
   Color _getPriorityColor(TaskPriority priority) {
     switch (priority) {
-      case TaskPriority.high:
-        return const Color(0xFFFF9500);
+      case TaskPriority.low:
+        return AppColors.primary;
       case TaskPriority.medium:
-        return const Color(0xFF34C759);
+        return const Color(0xFFFF9500);
+      case TaskPriority.high:
+        return const Color(0xFFFF3B30);
       case TaskPriority.urgent:
         return const Color(0xFFFF3B30);
-      case TaskPriority.low:
-        return const Color(0xFF8E8E93);
     }
   }
 
   String _getPriorityText(TaskPriority priority) {
     switch (priority) {
-      case TaskPriority.high:
-        return 'Ưu tiên cao';
+      case TaskPriority.low:
+        return 'Thấp';
       case TaskPriority.medium:
-        return 'Ưu tiên trung bình';
+        return 'Trung bình';
+      case TaskPriority.high:
+        return 'Cao';
       case TaskPriority.urgent:
         return 'Khẩn cấp';
-      case TaskPriority.low:
-        return 'Ưu tiên thấp';
     }
   }
 
-  void _addTask() {
+  void _addSubTask() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        final controller = TextEditingController();
+        return AlertDialog(
+          title: const Text('Thêm công việc con'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Nhập tên công việc con',
+            ),
+            onSubmitted: (value) {
+              if (value.isNotEmpty) {
+                setState(() {
+                  _subTasks.add(value);
+                  _subTaskControllers.add(TextEditingController(text: value));
+                });
+                Navigator.of(context).pop();
+              }
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                controller.dispose();
+                Navigator.of(context).pop();
+              },
+              child: const Text('Hủy'),
+            ),
+            TextButton(
+              onPressed: () {
+                if (controller.text.isNotEmpty) {
+                  setState(() {
+                    _subTasks.add(controller.text);
+                    _subTaskControllers.add(TextEditingController(text: controller.text));
+                  });
+                  controller.dispose();
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Thêm'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _saveTask() {
     if (_titleController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -127,6 +200,100 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     Navigator.of(context).pop();
   }
 
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    required String hintText,
+    int maxLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: R.styles.body(
+            size: 14,
+            weight: FontWeight.w600,
+            color: AppColors.black,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.paddingSmall),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.circular(
+              AppDimensions.borderRadiusMedium,
+            ),
+            border: Border.all(
+              color: AppColors.greyLight,
+              width: 1,
+            ),
+          ),
+          child: TextField(
+            controller: controller,
+            maxLines: maxLines,
+            style: R.styles.body(
+              size: 16,
+              color: AppColors.black,
+            ),
+            decoration: InputDecoration(
+              hintText: hintText,
+              hintStyle: R.styles.body(
+                size: 16,
+                color: AppColors.grey,
+              ),
+              border: InputBorder.none,
+              enabledBorder: InputBorder.none,
+              focusedBorder: InputBorder.none,
+              contentPadding: const EdgeInsets.all(
+                AppDimensions.paddingMedium,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTaskDetailItem({
+    required IconData icon,
+    required String label,
+    required Widget trailing,
+    VoidCallback? onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          vertical: AppDimensions.paddingMedium,
+          horizontal: AppDimensions.paddingMedium,
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: AppColors.grey, size: 20),
+            const SizedBox(width: AppDimensions.paddingMedium),
+            Expanded(
+              child: Text(
+                label,
+                style: R.styles.body(
+                  size: 16,
+                  color: AppColors.black,
+                ),
+              ),
+            ),
+            trailing,
+            if (onTap != null)
+              const Icon(
+                Icons.chevron_right,
+                color: AppColors.grey,
+                size: 20,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -135,303 +302,348 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.black),
+          icon: const Icon(Icons.close, color: AppColors.black),
           onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
-          'Thêm công việc mới',
+          'Công việc mới',
           style: R.styles.heading2(
             color: AppColors.black,
             weight: FontWeight.w700,
           ),
         ),
-        centerTitle: false,
+        centerTitle: true,
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Task Title
-              Text(
-                'Tiêu đề công việc',
-                style: R.styles.body(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: AppColors.black,
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Task Title
+                    _buildTextField(
+                      label: 'Tiêu đề công việc',
+                      controller: _titleController,
+                      hintText: 'Nhập tiêu đề công việc của bạn',
+                    ),
+                    const SizedBox(height: AppDimensions.paddingLarge),
+
+                    // Description
+                    _buildTextField(
+                      label: 'Mô tả',
+                      controller: _descriptionController,
+                      hintText: 'Thêm chi tiết về công việc của bạn',
+                      maxLines: 4,
+                    ),
+                    const SizedBox(height: AppDimensions.paddingLarge),
+
+                    // Task Details Card
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.borderRadiusLarge,
+                        ),
+                        border: Border.all(
+                          color: AppColors.greyLight,
+                          width: 1,
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          // Category
+                          _buildTaskDetailItem(
+                            icon: Icons.layers_outlined,
+                            label: 'Danh mục',
+                            trailing: Text(
+                              _selectedCategory ?? 'Công việc',
+                              style: R.styles.body(
+                                size: 16,
+                                color: AppColors.black,
+                              ),
+                            ),
+                            onTap: () {
+                              // TODO: Show category picker
+                              setState(() {
+                                _selectedCategory = 'Công việc';
+                              });
+                            },
+                          ),
+                          Divider(height: 1, color: AppColors.greyLight),
+                          
+                          // Date & Time
+                          _buildTaskDetailItem(
+                            icon: Icons.calendar_today_outlined,
+                            label: 'Ngày & Giờ',
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _getDateDisplay(),
+                                  style: R.styles.body(
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  _getTimeDisplay(),
+                                  style: R.styles.body(
+                                    size: 16,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            onTap: () => _selectDateAndTime(context),
+                          ),
+                          Divider(height: 1, color: AppColors.greyLight),
+                          
+                          // Priority
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              vertical: AppDimensions.paddingMedium,
+                              horizontal: AppDimensions.paddingMedium,
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.priority_high,
+                                  color: AppColors.grey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: AppDimensions.paddingMedium),
+                                Expanded(
+                                  child: Text(
+                                    'Mức độ ưu tiên',
+                                    style: R.styles.body(
+                                      size: 16,
+                                      color: AppColors.black,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(
+                              left: AppDimensions.paddingMedium,
+                              right: AppDimensions.paddingMedium,
+                              bottom: AppDimensions.paddingMedium,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _buildPriorityPillButton(
+                                    TaskPriority.low,
+                                    'Thấp',
+                                  ),
+                                ),
+                                const SizedBox(width: AppDimensions.paddingSmall),
+                                Expanded(
+                                  child: _buildPriorityPillButton(
+                                    TaskPriority.medium,
+                                    'Trung bình',
+                                  ),
+                                ),
+                                const SizedBox(width: AppDimensions.paddingSmall),
+                                Expanded(
+                                  child: _buildPriorityPillButton(
+                                    TaskPriority.high,
+                                    'Cao',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: AppColors.greyLight),
+                          
+                          // Attach file
+                          _buildTaskDetailItem(
+                            icon: Icons.attach_file,
+                            label: 'Đính kèm tệp',
+                            trailing: const SizedBox.shrink(),
+                            onTap: () {
+                              // TODO: Show file picker
+                            },
+                          ),
+                          Divider(height: 1, color: AppColors.greyLight),
+                          
+                          // Set Reminder
+                          _buildTaskDetailItem(
+                            icon: Icons.notifications_outlined,
+                            label: 'Đặt nhắc nhở',
+                            trailing: Switch(
+                              value: _reminderEnabled,
+                              onChanged: (value) {
+                                setState(() {
+                                  _reminderEnabled = value;
+                                });
+                              },
+                              activeColor: AppColors.primary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.paddingLarge),
+
+                    // Sub-tasks
+                    Text(
+                      'Công việc con',
+                      style: R.styles.body(
+                        size: 14,
+                        weight: FontWeight.w600,
+                        color: AppColors.black,
+                      ),
+                    ),
+                    const SizedBox(height: AppDimensions.paddingSmall),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: AppColors.white,
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.borderRadiusMedium,
+                        ),
+                        border: Border.all(
+                          color: AppColors.greyLight,
+                          width: 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          if (_subTasks.isEmpty) ...[
+                            _buildSubTaskItem('Công việc con đầu tiên', false, 0, isDefault: true),
+                            _buildSubTaskItem('Công việc con thứ hai', false, 1, isDefault: true),
+                          ] else
+                            ...List.generate(_subTasks.length, (index) {
+                              return _buildSubTaskItem(
+                                _subTasks[index],
+                                false,
+                                index,
+                              );
+                            }),
+                          InkWell(
+                            onTap: _addSubTask,
+                            child: Padding(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingMedium,
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.add,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: AppDimensions.paddingSmall),
+                                  Text(
+                                    'Thêm công việc con',
+                                    style: R.styles.body(
+                                      size: 16,
+                                      color: AppColors.primary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: AppDimensions.paddingSmall),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(
-                    AppDimensions.borderRadiusMedium,
-                  ),
-                  border: Border.all(
+            ),
+            
+            // Bottom Buttons
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  top: BorderSide(
                     color: AppColors.greyLight,
                     width: 1,
                   ),
                 ),
-                child: TextField(
-                  controller: _titleController,
-                  style: R.styles.body(
-                    size: 16,
-                    color: AppColors.black,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Nhập tiêu đề công việc',
-                    hintStyle: R.styles.body(
-                      size: 16,
-                      color: AppColors.grey,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.edit_outlined,
-                      color: AppColors.grey,
-                      size: 20,
-                    ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(
-                      AppDimensions.paddingMedium,
-                    ),
-                  ),
-                ),
               ),
-              const SizedBox(height: AppDimensions.paddingLarge),
-
-              // Date
-              Text(
-                'Ngày',
-                style: R.styles.body(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: AppColors.black,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingSmall),
-              GestureDetector(
-                onTap: () => _selectDate(context),
-                child: Container(
-                  padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(
-                      AppDimensions.borderRadiusMedium,
-                    ),
-                    border: Border.all(
-                      color: AppColors.greyLight,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today_outlined,
-                        color: AppColors.grey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppDimensions.paddingMedium),
-                      Expanded(
-                        child: Text(
-                          _selectedDate == null
-                              ? 'Chọn ngày'
-                              : _formatDate(_selectedDate),
-                          style: R.styles.body(
-                            size: 16,
-                            color: _selectedDate == null
-                                ? AppColors.grey
-                                : AppColors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingLarge),
-
-              // Time
-              Text(
-                'Giờ',
-                style: R.styles.body(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: AppColors.black,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingSmall),
-              GestureDetector(
-                onTap: () => _selectTime(context),
-                child: Container(
-                  padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                  decoration: BoxDecoration(
-                    color: AppColors.white,
-                    borderRadius: BorderRadius.circular(
-                      AppDimensions.borderRadiusMedium,
-                    ),
-                    border: Border.all(
-                      color: AppColors.greyLight,
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.access_time_outlined,
-                        color: AppColors.grey,
-                        size: 20,
-                      ),
-                      const SizedBox(width: AppDimensions.paddingMedium),
-                      Expanded(
-                        child: Text(
-                          _selectedTime == null
-                              ? 'Chọn giờ'
-                              : _formatTime(_selectedTime),
-                          style: R.styles.body(
-                            size: 16,
-                            color: _selectedTime == null
-                                ? AppColors.grey
-                                : AppColors.black,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingLarge),
-
-              // Priority
-              Text(
-                'Mức độ ưu tiên',
-                style: R.styles.body(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: AppColors.black,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingSmall),
-              Row(
+              child: Row(
                 children: [
                   Expanded(
-                    child: _buildPriorityButton(
-                      TaskPriority.low,
-                      'Thấp',
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppDimensions.paddingMedium,
+                        ),
+                        side: const BorderSide(
+                          color: AppColors.greyLight,
+                          width: 1,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Hủy',
+                        style: R.styles.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
                     ),
                   ),
-                  const SizedBox(width: AppDimensions.paddingSmall),
+                  const SizedBox(width: AppDimensions.paddingMedium),
                   Expanded(
-                    child: _buildPriorityButton(
-                      TaskPriority.medium,
-                      'Trung bình',
-                    ),
-                  ),
-                  const SizedBox(width: AppDimensions.paddingSmall),
-                  Expanded(
-                    child: _buildPriorityButton(
-                      TaskPriority.high,
-                      'Cao',
-                    ),
-                  ),
-                  const SizedBox(width: AppDimensions.paddingSmall),
-                  Expanded(
-                    child: _buildPriorityButton(
-                      TaskPriority.urgent,
-                      'Khẩn cấp',
+                    flex: 2,
+                    child: ElevatedButton(
+                      onPressed: _saveTask,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppDimensions.paddingMedium,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Lưu',
+                        style: R.styles.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: AppColors.white,
+                        ),
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: AppDimensions.paddingLarge),
-
-              // Project
-              Text(
-                'Dự án',
-                style: R.styles.body(
-                  size: 14,
-                  weight: FontWeight.w600,
-                  color: AppColors.black,
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingSmall),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.white,
-                  borderRadius: BorderRadius.circular(
-                    AppDimensions.borderRadiusMedium,
-                  ),
-                  border: Border.all(
-                    color: AppColors.greyLight,
-                    width: 1,
-                  ),
-                ),
-                child: TextField(
-                  controller: _projectController,
-                  style: R.styles.body(
-                    size: 16,
-                    color: AppColors.black,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: 'Nhập tên dự án',
-                    hintStyle: R.styles.body(
-                      size: 16,
-                      color: AppColors.grey,
-                    ),
-                    prefixIcon: const Icon(
-                      Icons.folder_outlined,
-                      color: AppColors.grey,
-                      size: 20,
-                    ),
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    contentPadding: const EdgeInsets.all(
-                      AppDimensions.paddingMedium,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: AppDimensions.paddingXLarge),
-
-              // Add Task Button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: _addTask,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: AppColors.white,
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppDimensions.paddingMedium,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.borderRadiusMedium,
-                      ),
-                    ),
-                    elevation: 0,
-                  ),
-                  child: Text(
-                    'Thêm công việc',
-                    style: R.styles.body(
-                      size: 16,
-                      weight: FontWeight.w600,
-                      color: AppColors.white,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildPriorityButton(TaskPriority priority, String label) {
+  Widget _buildPriorityPillButton(TaskPriority priority, String label) {
     final isSelected = _selectedPriority == priority;
     final color = _getPriorityColor(priority);
 
@@ -444,43 +656,61 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(
           vertical: AppDimensions.paddingSmall,
-          horizontal: AppDimensions.paddingXSmall,
         ),
         decoration: BoxDecoration(
-          color: isSelected
-              ? color.withOpacity(0.1)
-              : AppColors.white,
-          borderRadius: BorderRadius.circular(
-            AppDimensions.borderRadiusMedium,
-          ),
-          border: Border.all(
-            color: isSelected ? color : AppColors.greyLight,
-            width: isSelected ? 2 : 1,
-          ),
+          color: isSelected ? color : color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(
-          children: [
-            Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: R.styles.caption(
-                color: isSelected ? color : AppColors.grey,
-                weight: isSelected ? FontWeight.w600 : FontWeight.w400,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+        child: Text(
+          label,
+          textAlign: TextAlign.center,
+          style: R.styles.caption(
+            color: isSelected ? AppColors.white : color,
+            weight: FontWeight.w600,
+          ),
         ),
       ),
     );
   }
-}
 
+  Widget _buildSubTaskItem(String text, bool isChecked, int index, {bool isDefault = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppDimensions.paddingSmall,
+        horizontal: AppDimensions.paddingMedium,
+      ),
+      child: Row(
+        children: [
+          Checkbox(
+            value: isChecked,
+            onChanged: (value) {
+              // TODO: Handle checkbox change
+            },
+            activeColor: AppColors.primary,
+          ),
+          Expanded(
+            child: Text(
+              text,
+              style: R.styles.body(
+                size: 16,
+                color: AppColors.black,
+              ),
+            ),
+          ),
+          if (!isDefault)
+            IconButton(
+              icon: const Icon(Icons.delete_outline, size: 20),
+              color: AppColors.grey,
+              onPressed: () {
+                setState(() {
+                  _subTasks.removeAt(index);
+                  _subTaskControllers[index].dispose();
+                  _subTaskControllers.removeAt(index);
+                });
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
