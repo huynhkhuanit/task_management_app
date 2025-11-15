@@ -3,6 +3,8 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/category_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import '../utils/navigation_helper.dart';
+import 'add_category_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
   final String? selectedCategoryName;
@@ -74,141 +76,19 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     });
   }
 
-  void _showAddCategoryDialog() {
-    final nameController = TextEditingController();
-    Color selectedColor = AppColors.primary;
-    IconData selectedIcon = Icons.folder_outlined;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius:
-                BorderRadius.circular(AppDimensions.borderRadiusLarge),
-          ),
-          title: Text(
-            'Thêm danh mục mới',
-            style: R.styles.heading2(
-              color: AppColors.black,
-              weight: FontWeight.w700,
-            ),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: InputDecoration(
-                    labelText: 'Tên danh mục',
-                    labelStyle: R.styles.body(
-                      size: 16,
-                      color: AppColors.grey,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        AppDimensions.borderRadiusMedium,
-                      ),
-                    ),
-                  ),
-                  style: R.styles.body(
-                    size: 16,
-                    color: AppColors.black,
-                  ),
-                ),
-                const SizedBox(height: AppDimensions.paddingLarge),
-                Text(
-                  'Chọn màu',
-                  style: R.styles.body(
-                    size: 16,
-                    weight: FontWeight.w600,
-                    color: AppColors.black,
-                  ),
-                ),
-                const SizedBox(height: AppDimensions.paddingSmall),
-                Wrap(
-                  spacing: AppDimensions.paddingMedium,
-                  children: [
-                    AppColors.primary,
-                    const Color(0xFF10B981),
-                    const Color(0xFF8B5CF6),
-                    const Color(0xFFFF9500),
-                    const Color(0xFFFF3B30),
-                    const Color(0xFFFFC107),
-                  ].map((color) {
-                    return GestureDetector(
-                      onTap: () {
-                        setDialogState(() {
-                          selectedColor = color;
-                        });
-                      },
-                      child: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: color,
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: selectedColor == color
-                                ? AppColors.black
-                                : Colors.transparent,
-                            width: 3,
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Hủy',
-                style: R.styles.body(
-                  size: 16,
-                  color: AppColors.grey,
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                if (nameController.text.isNotEmpty) {
-                  setState(() {
-                    _categories.add(
-                      Category(
-                        id: DateTime.now().millisecondsSinceEpoch.toString(),
-                        name: nameController.text,
-                        icon: selectedIcon,
-                        color: selectedColor,
-                        taskCount: 0,
-                        order: _categories.length,
-                      ),
-                    );
-                  });
-                  Navigator.pop(context);
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.primary,
-                foregroundColor: AppColors.white,
-              ),
-              child: Text(
-                'Thêm',
-                style: R.styles.body(
-                  size: 16,
-                  weight: FontWeight.w600,
-                  color: AppColors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
+  void _showAddCategoryDialog() async {
+    final result = await NavigationHelper.pushSlideTransition<Category>(
+      context,
+      const AddCategoryScreen(),
     );
+
+    if (result != null) {
+      setState(() {
+        _categories.add(
+          result.copyWith(order: _categories.length),
+        );
+      });
+    }
   }
 
   void _showCategoryMenu(BuildContext context, Category category) {
