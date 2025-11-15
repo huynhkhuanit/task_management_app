@@ -490,22 +490,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           _buildTaskDetailItem(
                             icon: Icons.notifications_outlined,
                             label: 'Đặt nhắc nhở',
-                            trailing: Switch(
+                            trailing: _CustomAnimatedSwitch(
                               value: _reminderEnabled,
                               onChanged: (value) {
                                 setState(() {
                                   _reminderEnabled = value;
                                 });
                               },
-                              activeColor: AppColors.primary,
-                              inactiveThumbColor: AppColors.primary,
-                              inactiveTrackColor: AppColors.greyLight,
-                              trackOutlineColor:
-                                  MaterialStateProperty.resolveWith<Color>(
-                                (Set<MaterialState> states) {
-                                  return Colors.transparent;
-                                },
-                              ),
                             ),
                           ),
                         ],
@@ -712,6 +703,24 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               // TODO: Handle checkbox change
             },
             activeColor: AppColors.primary,
+            checkColor: AppColors.white,
+            fillColor: MaterialStateProperty.resolveWith<Color>(
+              (Set<MaterialState> states) {
+                if (states.contains(MaterialState.selected)) {
+                  return AppColors.primary;
+                }
+                return AppColors.white;
+              },
+            ),
+            side: BorderSide(
+              color: AppColors.greyLight,
+              width: 1,
+            ),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(
+                AppDimensions.borderRadiusSmall,
+              ),
+            ),
           ),
           Expanded(
             child: Text(
@@ -735,6 +744,79 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               },
             ),
         ],
+      ),
+    );
+  }
+
+  Widget _CustomAnimatedSwitch({
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return GestureDetector(
+      onTap: () => onChanged(!value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 400),
+        curve: Curves.easeInOutCubic,
+        width: 52,
+        height: 32,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          color: value ? AppColors.primary : AppColors.greyLight,
+          boxShadow: value
+              ? [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : [],
+        ),
+        child: Stack(
+          children: [
+            TweenAnimationBuilder<double>(
+              key: ValueKey<bool>(value),
+              duration: const Duration(milliseconds: 400),
+              curve: Curves.easeInOutCubic,
+              tween: Tween<double>(
+                begin: value ? 2.0 : 20.0,
+                end: value ? 20.0 : 2.0,
+              ),
+              builder: (context, leftValue, child) {
+                return Positioned(
+                  left: leftValue,
+                  top: 2,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.easeInOutCubic,
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: AppColors.white,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (child, animation) {
+                        return ScaleTransition(
+                          scale: animation,
+                          child: child,
+                        );
+                      },
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
