@@ -259,12 +259,6 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
   }
 
-  void _selectCategory(Category category) {
-    if (widget.onCategorySelected != null) {
-      widget.onCategorySelected!(category.name);
-      Navigator.pop(context);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -308,17 +302,26 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           const SizedBox(width: AppDimensions.paddingSmall),
         ],
       ),
-      body: ReorderableListView.builder(
-        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-        itemCount: _categories.length,
-        onReorder: _reorderCategories,
-        itemBuilder: (context, index) {
-          final category = _categories[index];
-          final isSelected = widget.selectedCategoryName == category.name;
-
-          return _buildCategoryCard(category, index, isSelected);
-        },
-      ),
+      body: isSelectionMode
+          ? ListView.builder(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              itemCount: _categories.length,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = widget.selectedCategoryName == category.name;
+                return _buildCategoryCard(category, index, isSelected);
+              },
+            )
+          : ReorderableListView.builder(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              itemCount: _categories.length,
+              onReorder: _reorderCategories,
+              itemBuilder: (context, index) {
+                final category = _categories[index];
+                final isSelected = widget.selectedCategoryName == category.name;
+                return _buildCategoryCard(category, index, isSelected);
+              },
+            ),
       bottomNavigationBar: isSelectionMode
           ? null
           : CustomBottomNavigationBar(
@@ -331,6 +334,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildCategoryCard(Category category, int index, bool isSelected) {
+    final isSelectionMode = widget.onCategorySelected != null;
+    
     return Container(
       key: ValueKey(category.id),
       margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
@@ -352,21 +357,29 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: widget.onCategorySelected != null
-              ? () => _selectCategory(category)
+          onTap: isSelectionMode
+              ? () {
+                  // In selection mode, select and return immediately
+                  if (widget.onCategorySelected != null) {
+                    widget.onCategorySelected!(category.name);
+                    Navigator.of(context).pop(category.name);
+                  }
+                }
               : null,
           borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
           child: Padding(
             padding: const EdgeInsets.all(AppDimensions.paddingMedium),
             child: Row(
               children: [
-                // Drag handle
-                Icon(
-                  Icons.drag_handle,
-                  color: AppColors.grey,
-                  size: 20,
-                ),
-                const SizedBox(width: AppDimensions.paddingSmall),
+                // Drag handle - only show when not in selection mode
+                if (!isSelectionMode)
+                  Icon(
+                    Icons.drag_handle,
+                    color: AppColors.grey,
+                    size: 20,
+                  ),
+                if (!isSelectionMode)
+                  const SizedBox(width: AppDimensions.paddingSmall),
                 // Category icon
                 Container(
                   width: 48,
@@ -406,8 +419,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ],
                   ),
                 ),
-                // Menu button
-                if (widget.onCategorySelected == null)
+                // Menu button or check icon
+                if (!isSelectionMode)
                   IconButton(
                     icon: const Icon(
                       Icons.more_vert,
@@ -419,6 +432,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   const Icon(
                     Icons.check_circle,
                     color: AppColors.primary,
+                    size: 24,
                   ),
               ],
             ),
