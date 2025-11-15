@@ -310,15 +310,9 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
         elevation: 0,
         scrolledUnderElevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: Hero(
-          tag: 'edit_task_close_button',
-          child: Material(
-            color: Colors.transparent,
-            child: IconButton(
-              icon: const Icon(Icons.close, color: AppColors.black),
-              onPressed: _handleCancel,
-            ),
-          ),
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: AppColors.black),
+          onPressed: _handleCancel,
         ),
         title: Text(
           'Chỉnh sửa công việc',

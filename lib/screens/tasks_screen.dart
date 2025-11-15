@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import '../utils/navigation_helper.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 
@@ -491,10 +492,9 @@ class _TasksScreenState extends State<TasksScreen> {
           ? FloatingActionButton(
               heroTag: 'tasks_screen_fab',
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AddTaskScreen(),
-                  ),
+                NavigationHelper.pushSlideTransition(
+                  context,
+                  const AddTaskScreen(),
                 );
               },
               backgroundColor: AppColors.primary,
@@ -511,10 +511,9 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget _buildTaskCard(Task task) {
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => TaskDetailScreen(task: task),
-          ),
+        NavigationHelper.pushSlideTransition(
+          context,
+          TaskDetailScreen(task: task),
         );
       },
       borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),

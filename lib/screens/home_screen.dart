@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import '../utils/navigation_helper.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
@@ -245,10 +246,9 @@ class _HomeScreenState extends State<HomeScreen> {
           ? FloatingActionButton(
               heroTag: 'home_fab_tasks',
               onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => const AddTaskScreen(),
-                  ),
+                NavigationHelper.pushSlideTransition(
+                  context,
+                  const AddTaskScreen(),
                 );
               },
               backgroundColor: AppColors.primary,
@@ -322,10 +322,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return InkWell(
       onTap: () {
-        Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (context) => TaskDetailScreen(task: task),
-          ),
+        NavigationHelper.pushSlideTransition(
+          context,
+          TaskDetailScreen(task: task),
         );
       },
       borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
