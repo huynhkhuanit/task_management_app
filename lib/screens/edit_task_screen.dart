@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import '../utils/navigation_helper.dart';
+import 'categories_screen.dart';
 
 class EditTaskScreen extends StatefulWidget {
   final Task task;
@@ -186,49 +188,22 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     }
   }
 
-  void _showCategoryPicker() {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(
-          top: Radius.circular(AppDimensions.borderRadiusXLarge),
-        ),
+  void _showCategoryPicker() async {
+    final result = await NavigationHelper.pushSlideTransition<String>(
+      context,
+      CategoriesScreen(
+        selectedCategoryName: _selectedCategory,
+        onCategorySelected: (categoryName) {
+          Navigator.of(context).pop(categoryName);
+        },
       ),
-      builder: (context) {
-        final categories = [
-          'Thiết kế',
-          'Phát triển',
-          'Marketing',
-          'Nghiên cứu'
-        ];
-        return Container(
-          padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: categories.map((category) {
-              return ListTile(
-                title: Text(
-                  category,
-                  style: R.styles.body(
-                    size: 16,
-                    color: AppColors.black,
-                  ),
-                ),
-                trailing: _selectedCategory == category
-                    ? const Icon(Icons.check, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  setState(() {
-                    _selectedCategory = category;
-                  });
-                  Navigator.pop(context);
-                },
-              );
-            }).toList(),
-          ),
-        );
-      },
     );
+
+    if (result != null) {
+      setState(() {
+        _selectedCategory = result;
+      });
+    }
   }
 
   void _showPriorityPicker() {
