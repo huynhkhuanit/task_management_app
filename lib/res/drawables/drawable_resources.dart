@@ -31,6 +31,11 @@ class DrawableResources {
   /// Alias for onboarding3
   String get onboarding_3 => onboarding3;
 
+  /// ============ LOGO ============
+
+  /// App logo
+  String get logo => _asset('logo.png');
+
   /// ============ ADD MORE IMAGES BELOW ============
   // String get imageName => _asset('image_name.png');
 }

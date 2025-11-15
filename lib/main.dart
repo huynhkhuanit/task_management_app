@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'constants/app_constants.dart';
 import 'res/fonts/sf_pro_typography_theme.dart';
-import 'screens/onboarding_screen.dart';
+import 'screens/splash_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -256,7 +256,7 @@ class MyApp extends StatelessWidget {
         highlightColor: AppColors.primary.withOpacity(0.1),
         hoverColor: AppColors.primary.withOpacity(0.05),
       ),
-      home: const OnboardingScreen(),
+      home: const SplashScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
