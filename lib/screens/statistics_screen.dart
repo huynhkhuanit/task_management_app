@@ -179,12 +179,13 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           const SizedBox(height: AppDimensions.paddingLarge),
                           // Legend
                           Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: categoryData.map((data) {
                               return Padding(
                                 padding: const EdgeInsets.only(
                                     bottom: AppDimensions.paddingMedium),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisAlignment: MainAxisAlignment.start,
                                   children: [
                                     Container(
                                       width: 12,
