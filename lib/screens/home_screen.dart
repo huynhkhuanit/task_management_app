@@ -374,7 +374,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: R.styles
                       .body(
                         size: 16,
-                        weight: FontWeight.w500,
+                        weight: FontWeight.w700,
                         color: AppColors.black,
                       )
                       .copyWith(
