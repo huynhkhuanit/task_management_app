@@ -304,7 +304,7 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
                         elevation: 0,
                       ),
                       child: Text(
-                        'Lưu',
+                        widget.categoryToEdit != null ? 'Lưu' : 'Thêm',
                         style: R.styles.body(
                           size: 16,
                           weight: FontWeight.w600,

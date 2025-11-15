@@ -113,9 +113,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   color: AppColors.black,
                 ),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                // TODO: Implement edit
+                final result =
+                    await NavigationHelper.pushSlideTransition<Category>(
+                  context,
+                  AddCategoryScreen(categoryToEdit: category),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    final index =
+                        _categories.indexWhere((c) => c.id == category.id);
+                    if (index != -1) {
+                      _categories[index] = result;
+                    }
+                  });
+                }
               },
             ),
             ListTile(
@@ -144,6 +158,22 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     if (widget.onCategorySelected != null) {
       widget.onCategorySelected!(category.name);
       Navigator.pop(context);
+    }
+  }
+
+  void _editCategory(Category category) async {
+    final result = await NavigationHelper.pushSlideTransition<Category>(
+      context,
+      AddCategoryScreen(categoryToEdit: category),
+    );
+
+    if (result != null) {
+      setState(() {
+        final index = _categories.indexWhere((c) => c.id == category.id);
+        if (index != -1) {
+          _categories[index] = result;
+        }
+      });
     }
   }
 
@@ -207,6 +237,7 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
 
           return _buildCategoryCard(category, index, isSelected);
         },
+        buildDefaultDragHandles: false,
       ),
       bottomNavigationBar: isSelectionMode
           ? null
@@ -240,78 +271,102 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
       ),
       child: Material(
         color: Colors.transparent,
-        child: InkWell(
-          onTap: widget.onCategorySelected != null
-              ? () => _selectCategory(category)
-              : null,
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-          child: Padding(
-            padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-            child: Row(
-              children: [
-                // Drag handle
-                Icon(
+        child: Row(
+          children: [
+            // Drag handle
+            ReorderableDragStartListener(
+              index: index,
+              child: Container(
+                padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+                child: Icon(
                   Icons.drag_handle,
                   color: AppColors.grey,
                   size: 20,
                 ),
-                const SizedBox(width: AppDimensions.paddingSmall),
-                // Category icon
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    color: category.color.withOpacity(0.1),
-                    shape: BoxShape.circle,
+              ),
+            ),
+            // Tapable area for editing
+            Expanded(
+              child: InkWell(
+                onTap: () => _editCategory(category),
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusLarge),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: AppDimensions.paddingMedium,
+                    horizontal: AppDimensions.paddingSmall,
                   ),
-                  child: Icon(
-                    category.icon,
-                    color: category.color,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: AppDimensions.paddingMedium),
-                // Category info
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
                     children: [
-                      Text(
-                        category.name,
-                        style: R.styles.body(
-                          size: 16,
-                          weight: FontWeight.w600,
-                          color: AppColors.black,
+                      // Category icon
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: category.color.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          category.icon,
+                          color: category.color,
+                          size: 24,
                         ),
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${category.taskCount} công việc',
-                        style: R.styles.body(
-                          size: 14,
-                          color: AppColors.grey,
+                      const SizedBox(width: AppDimensions.paddingMedium),
+                      // Category info
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category.name,
+                              style: R.styles.body(
+                                size: 16,
+                                weight: FontWeight.w600,
+                                color: AppColors.black,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${category.taskCount} công việc',
+                              style: R.styles.body(
+                                size: 14,
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      // Selection indicator or menu button
+                      if (widget.onCategorySelected == null)
+                        GestureDetector(
+                          onTap: () {
+                            _showCategoryMenu(context, category);
+                          },
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            child: const Icon(
+                              Icons.more_vert,
+                              color: AppColors.grey,
+                            ),
+                          ),
+                        )
+                      else if (isSelected)
+                        Padding(
+                          padding: const EdgeInsets.only(
+                              right: AppDimensions.paddingSmall),
+                          child: const Icon(
+                            Icons.check_circle,
+                            color: AppColors.primary,
+                          ),
+                        ),
                     ],
                   ),
                 ),
-                // Menu button
-                if (widget.onCategorySelected == null)
-                  IconButton(
-                    icon: const Icon(
-                      Icons.more_vert,
-                      color: AppColors.grey,
-                    ),
-                    onPressed: () => _showCategoryMenu(context, category),
-                  )
-                else if (isSelected)
-                  const Icon(
-                    Icons.check_circle,
-                    color: AppColors.primary,
-                  ),
-              ],
+              ),
             ),
-          ),
+          ],
         ),
       ),
     );
