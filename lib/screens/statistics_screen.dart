@@ -19,6 +19,28 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   final double performanceScore = 9.2;
   final int totalTasks = 25;
 
+  // Get status based on performance score
+  String get statusText {
+    if (performanceScore >= 9.0) return 'Xuất sắc';
+    if (performanceScore >= 7.0) return 'Tốt';
+    if (performanceScore >= 5.0) return 'Khá';
+    return 'Cần cải thiện';
+  }
+
+  Color get statusColor {
+    if (performanceScore >= 9.0) return AppColors.success;
+    if (performanceScore >= 7.0) return AppColors.primary;
+    if (performanceScore >= 5.0) return const Color(0xFFFF9500);
+    return AppColors.error;
+  }
+
+  IconData get statusIcon {
+    if (performanceScore >= 9.0) return Icons.trending_up;
+    if (performanceScore >= 7.0) return Icons.assessment_outlined;
+    if (performanceScore >= 5.0) return Icons.trending_flat;
+    return Icons.trending_down;
+  }
+
   // Category distribution data
   final List<CategoryData> categoryData = [
     CategoryData(
@@ -131,7 +153,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           ),
                         ),
                         const SizedBox(width: AppDimensions.paddingMedium),
-                        const Expanded(child: SizedBox()),
+                        Expanded(
+                          child: _buildStatCard(
+                            'Trạng thái',
+                            statusText,
+                            statusColor,
+                            statusIcon,
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: AppDimensions.paddingLarge),
@@ -318,7 +347,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 child: Text(
                   title,
                   style: R.styles.body(
-                    size: 12,
+                    size: 14,
                     color: AppColors.grey,
                   ),
                   maxLines: 2,
@@ -330,7 +359,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           const SizedBox(height: AppDimensions.paddingSmall),
           Text(
             value,
-            style: R.styles.heading2(
+            style: R.styles.heading3(
               color: color,
               weight: FontWeight.w700,
             ),

@@ -73,6 +73,22 @@ class _StylesAccessor {
     );
   }
 
+  /// Create heading 3 style (20px)
+  TextStyle heading3({
+    FontWeight weight = FontWeight.w700,
+    Color? color,
+    double? letterSpacing,
+  }) {
+    return TextStyle(
+      fontFamily: 'SFProDisplay',
+      fontSize: 20,
+      fontWeight: weight,
+      color: color,
+      letterSpacing: letterSpacing,
+      height: 1.4,
+    );
+  }
+
   /// Create body text style
   TextStyle body({
     FontWeight weight = FontWeight.w400,
