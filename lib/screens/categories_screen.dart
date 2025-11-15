@@ -318,7 +318,9 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   // Category info
                   Expanded(
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           category.name,
@@ -327,14 +329,18 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                             weight: FontWeight.w600,
                             color: AppColors.black,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
                           '${category.taskCount} công việc',
                           style: R.styles.body(
                             size: 14,
                             color: AppColors.grey,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ],
                     ),
