@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
+import '../utils/navigation_helper.dart';
 import 'onboarding_screen.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -52,10 +53,9 @@ class _SplashScreenState extends State<SplashScreen>
       // Đợi thêm một chút để người dùng thấy logo
       Future.delayed(const Duration(milliseconds: 500), () {
         if (mounted) {
-          Navigator.of(context).pushReplacement(
-            MaterialPageRoute(
-              builder: (context) => const OnboardingScreen(),
-            ),
+          NavigationHelper.pushReplacementSlideTransition(
+            context,
+            const OnboardingScreen(),
           );
         }
       });

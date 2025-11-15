@@ -3,7 +3,6 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
-import 'login_screen.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -32,11 +31,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   }
 
   void _handleBackToLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-    );
+    Navigator.of(context).pop();
   }
 
   @override
@@ -124,13 +119,15 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                   onTap: _handleBackToLogin,
                   child: Text(
                     'Quay lại Đăng nhập',
-                    style: R.styles.body(
-                      size: 16,
-                      color: AppColors.grey,
-                      weight: FontWeight.w500,
-                    ).copyWith(
-                      decoration: TextDecoration.underline,
-                    ),
+                    style: R.styles
+                        .body(
+                          size: 16,
+                          color: AppColors.grey,
+                          weight: FontWeight.w500,
+                        )
+                        .copyWith(
+                          decoration: TextDecoration.underline,
+                        ),
                   ),
                 ),
                 const SizedBox(height: AppDimensions.paddingXLarge),
@@ -142,4 +139,3 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 }
-

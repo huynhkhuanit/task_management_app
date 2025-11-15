@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
+import '../utils/navigation_helper.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import 'home_screen.dart';
@@ -29,10 +30,9 @@ class _LoginScreenState extends State<LoginScreen> {
   void _handleSignIn() {
     if (_formKey.currentState!.validate()) {
       // Navigate to home screen
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => const HomeScreen(),
-        ),
+      NavigationHelper.pushReplacementSlideTransition(
+        context,
+        const HomeScreen(),
       );
     }
   }
@@ -45,18 +45,16 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   void _handleForgotPassword() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const ForgotPasswordScreen(),
-      ),
+    NavigationHelper.pushSlideTransition(
+      context,
+      const ForgotPasswordScreen(),
     );
   }
 
   void _handleSignUp() {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const SignUpScreen(),
-      ),
+    NavigationHelper.pushSlideTransition(
+      context,
+      const SignUpScreen(),
     );
   }
 

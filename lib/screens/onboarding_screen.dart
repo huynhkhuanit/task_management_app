@@ -5,6 +5,7 @@ import '../res/fonts/font_resources.dart';
 import '../widgets/custom_buttons.dart';
 import '../widgets/onboarding_page.dart';
 import '../widgets/onboarding_page_indicator.dart';
+import '../utils/navigation_helper.dart';
 import 'login_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -70,10 +71,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _navigateToLogin() {
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
+    NavigationHelper.pushReplacementSlideTransition(
+      context,
+      const LoginScreen(),
     );
   }
 
