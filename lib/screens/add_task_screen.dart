@@ -779,18 +779,18 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               duration: const Duration(milliseconds: 400),
               curve: Curves.easeInOutCubic,
               tween: Tween<double>(
-                begin: value ? 2.0 : 20.0,
-                end: value ? 20.0 : 2.0,
+                begin: value ? 3.5 : 23.5,
+                end: value ? 23.5 : 3.5,
               ),
               builder: (context, leftValue, child) {
                 return Positioned(
                   left: leftValue,
-                  top: 2,
+                  top: 3.5,
                   child: AnimatedContainer(
                     duration: const Duration(milliseconds: 400),
                     curve: Curves.easeInOutCubic,
-                    width: 28,
-                    height: 28,
+                    width: 25,
+                    height: 25,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: AppColors.white,
