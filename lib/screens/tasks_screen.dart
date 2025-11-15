@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import 'add_task_screen.dart';
+import 'task_detail_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   final bool showBottomNavigationBar;
@@ -505,66 +506,76 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   Widget _buildTaskCard(Task task) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
-      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-        border: Border.all(
-          color: AppColors.greyLight,
-          width: 1,
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => TaskDetailScreen(task: task),
+          ),
+        );
+      },
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
+        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+          border: Border.all(
+            color: AppColors.greyLight,
+            width: 1,
+          ),
         ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Task title
-          Text(
-            task.title,
-            style: R.styles.body(
-              size: 16,
-              weight: FontWeight.w600,
-              color: AppColors.black,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Task title
+            Text(
+              task.title,
+              style: R.styles.body(
+                size: 16,
+                weight: FontWeight.w600,
+                color: AppColors.black,
+              ),
             ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          // Due date
-          Text(
-            _formatDueDate(task.dueDate),
-            style: R.styles.body(
-              size: 14,
-              color: AppColors.grey,
+            const SizedBox(height: AppDimensions.paddingSmall),
+            // Due date
+            Text(
+              _formatDueDate(task.dueDate),
+              style: R.styles.body(
+                size: 14,
+                color: AppColors.grey,
+              ),
             ),
-          ),
-          const SizedBox(height: AppDimensions.paddingSmall),
-          // Tags
-          Wrap(
-            spacing: AppDimensions.paddingSmall,
-            runSpacing: AppDimensions.paddingSmall,
-            children: task.tags.map((tag) {
-              return Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: AppDimensions.paddingSmall,
-                  vertical: AppDimensions.paddingXSmall,
-                ),
-                decoration: BoxDecoration(
-                  color: _getTagBackgroundColor(tag, task.priority),
-                  borderRadius: BorderRadius.circular(
-                    AppDimensions.borderRadiusMedium,
+            const SizedBox(height: AppDimensions.paddingSmall),
+            // Tags
+            Wrap(
+              spacing: AppDimensions.paddingSmall,
+              runSpacing: AppDimensions.paddingSmall,
+              children: task.tags.map((tag) {
+                return Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.paddingSmall,
+                    vertical: AppDimensions.paddingXSmall,
                   ),
-                ),
-                child: Text(
-                  tag,
-                  style: R.styles.caption(
-                    color: _getTagTextColor(tag, task.priority),
-                    weight: FontWeight.w500,
+                  decoration: BoxDecoration(
+                    color: _getTagBackgroundColor(tag, task.priority),
+                    borderRadius: BorderRadius.circular(
+                      AppDimensions.borderRadiusMedium,
+                    ),
                   ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
+                  child: Text(
+                    tag,
+                    style: R.styles.caption(
+                      color: _getTagTextColor(tag, task.priority),
+                      weight: FontWeight.w500,
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
       ),
     );
   }

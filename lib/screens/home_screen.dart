@@ -6,6 +6,7 @@ import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
+import 'task_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -317,92 +318,104 @@ class _HomeScreenState extends State<HomeScreen> {
     final timeString =
         '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
-      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-      decoration: BoxDecoration(
-        color: AppColors.white,
-        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-      ),
-      child: Row(
-        children: [
-          // Checkbox
-          GestureDetector(
-            onTap: () {
-              setState(() {
-                final index = _todayTasks.indexWhere((t) => t.id == task.id);
-                if (index != -1) {
-                  _todayTasks[index] = Task(
-                    id: task.id,
-                    title: task.title,
-                    project: task.project,
-                    time: task.time,
-                    status:
-                        isCompleted ? TaskStatus.pending : TaskStatus.completed,
-                  );
-                }
-              });
-            },
-            child: Container(
-              width: 24,
-              height: 24,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted ? AppColors.primary : Colors.transparent,
-                border: Border.all(
-                  color: isCompleted ? AppColors.primary : AppColors.greyLight,
-                  width: 2,
-                ),
-              ),
-              child: isCompleted
-                  ? const Icon(
-                      Icons.check,
-                      size: 16,
-                      color: AppColors.white,
-                    )
-                  : null,
-            ),
+    return InkWell(
+      onTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => TaskDetailScreen(task: task),
           ),
-          const SizedBox(width: AppDimensions.paddingMedium),
-          // Task info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.title,
-                  style: R.styles
-                      .body(
-                        size: 16,
-                        weight: FontWeight.w700,
-                        color: AppColors.black,
-                      )
-                      .copyWith(
-                        decoration: isCompleted
-                            ? TextDecoration.lineThrough
-                            : TextDecoration.none,
-                      ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Dự án: ${task.project}',
-                  style: R.styles.body(
-                    size: 14,
-                    color: AppColors.grey,
+        );
+      },
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
+        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        ),
+        child: Row(
+          children: [
+            // Checkbox
+            GestureDetector(
+              onTap: () {
+                setState(() {
+                  final index = _todayTasks.indexWhere((t) => t.id == task.id);
+                  if (index != -1) {
+                    _todayTasks[index] = Task(
+                      id: task.id,
+                      title: task.title,
+                      project: task.project,
+                      time: task.time,
+                      status: isCompleted
+                          ? TaskStatus.pending
+                          : TaskStatus.completed,
+                    );
+                  }
+                });
+              },
+              child: Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isCompleted ? AppColors.primary : Colors.transparent,
+                  border: Border.all(
+                    color:
+                        isCompleted ? AppColors.primary : AppColors.greyLight,
+                    width: 2,
                   ),
                 ),
-              ],
+                child: isCompleted
+                    ? const Icon(
+                        Icons.check,
+                        size: 16,
+                        color: AppColors.white,
+                      )
+                    : null,
+              ),
             ),
-          ),
-          // Time
-          Text(
-            timeString,
-            style: R.styles.body(
-              size: 14,
-              color: AppColors.grey,
+            const SizedBox(width: AppDimensions.paddingMedium),
+            // Task info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task.title,
+                    style: R.styles
+                        .body(
+                          size: 16,
+                          weight: FontWeight.w700,
+                          color: AppColors.black,
+                        )
+                        .copyWith(
+                          decoration: isCompleted
+                              ? TextDecoration.lineThrough
+                              : TextDecoration.none,
+                        ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Dự án: ${task.project}',
+                    style: R.styles.body(
+                      size: 14,
+                      color: AppColors.grey,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+            // Time
+            Text(
+              timeString,
+              style: R.styles.body(
+                size: 14,
+                color: AppColors.grey,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

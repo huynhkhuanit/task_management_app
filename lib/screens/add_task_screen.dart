@@ -601,7 +601,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         ),
                         minimumSize: const Size(0, 44),
                         side: const BorderSide(
-                          color: AppColors.greyLight,
+                          color: AppColors.primary,
                           width: 1,
                         ),
                         shape: RoundedRectangleBorder(
