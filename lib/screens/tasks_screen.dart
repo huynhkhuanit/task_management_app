@@ -487,21 +487,24 @@ class _TasksScreenState extends State<TasksScreen> {
               },
             )
           : null,
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const AddTaskScreen(),
-            ),
-          );
-        },
-        backgroundColor: AppColors.primary,
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-        ),
-        child: const Icon(Icons.add, color: AppColors.white),
-      ),
+      floatingActionButton: widget.showBottomNavigationBar
+          ? FloatingActionButton(
+              heroTag: 'tasks_screen_fab',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const AddTaskScreen(),
+                  ),
+                );
+              },
+              backgroundColor: AppColors.primary,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+              ),
+              child: const Icon(Icons.add, color: AppColors.white),
+            )
+          : null,
     );
   }
 

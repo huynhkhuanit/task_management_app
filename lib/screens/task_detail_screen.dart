@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import 'edit_task_screen.dart';
 
 class TaskDetailScreen extends StatefulWidget {
   final Task task;
@@ -136,6 +137,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ),
         centerTitle: true,
+        leadingWidth: 56,
+        toolbarHeight: 56,
       ),
       body: SafeArea(
         child: Column(
@@ -338,7 +341,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () {
-                        // TODO: Navigate to edit screen
+                        Navigator.of(context).push(
+                          PageRouteBuilder(
+                            pageBuilder: (context, animation, secondaryAnimation) =>
+                                EditTaskScreen(
+                              task: widget.task,
+                            ),
+                            transitionsBuilder:
+                                (context, animation, secondaryAnimation, child) {
+                              return FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              );
+                            },
+                            transitionDuration: const Duration(milliseconds: 200),
+                          ),
+                        );
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(

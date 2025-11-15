@@ -243,6 +243,7 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       floatingActionButton: _currentIndex == 1
           ? FloatingActionButton(
+              heroTag: 'home_fab_tasks',
               onPressed: () {
                 Navigator.of(context).push(
                   MaterialPageRoute(
@@ -260,6 +261,7 @@ class _HomeScreenState extends State<HomeScreen> {
             )
           : _currentIndex == 0
               ? FloatingActionButton(
+                  heroTag: 'home_fab_home',
                   onPressed: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
