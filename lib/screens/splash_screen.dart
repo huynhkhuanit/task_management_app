@@ -90,9 +90,25 @@ class _SplashScreenState extends State<SplashScreen>
               scale: _scaleAnimation,
               child: Image.asset(
                 R.drawables.logo,
-                width: 200,
-                height: 200,
+                width: 240,
+                height: 240,
                 fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  // Fallback nếu không load được logo
+                  return Container(
+                    width: 240,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: const Icon(
+                      Icons.check_circle,
+                      size: 120,
+                      color: AppColors.white,
+                    ),
+                  );
+                },
               ),
             ),
           ),
