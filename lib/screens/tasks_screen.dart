@@ -386,31 +386,45 @@ class _TasksScreenState extends State<TasksScreen> {
                           children: List.generate(
                             _categories.length,
                             (index) => Expanded(
-                              child: GestureDetector(
+                              child: InkWell(
                                 onTap: () {
                                   setState(() {
                                     _selectedCategoryIndex = index;
                                   });
                                 },
-                                child: Column(
-                                  children: [
-                                    AnimatedDefaultTextStyle(
-                                      duration:
-                                          const Duration(milliseconds: 200),
-                                      curve: Curves.easeInOut,
-                                      style: R.styles.body(
-                                        size: 14,
-                                        weight: _selectedCategoryIndex == index
-                                            ? FontWeight.w700
-                                            : FontWeight.w400,
-                                        color: _selectedCategoryIndex == index
-                                            ? AppColors.black
-                                            : AppColors.grey,
+                                borderRadius: BorderRadius.circular(8),
+                                splashColor: AppColors.primary.withOpacity(0.1),
+                                highlightColor:
+                                    AppColors.primary.withOpacity(0.05),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: AppDimensions.paddingSmall,
+                                    right: AppDimensions.paddingSmall,
+                                    top: AppDimensions.paddingSmall,
+                                    bottom: 3.0,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      AnimatedDefaultTextStyle(
+                                        duration:
+                                            const Duration(milliseconds: 200),
+                                        curve: Curves.easeInOut,
+                                        style: R.styles.body(
+                                          size: 14,
+                                          weight:
+                                              _selectedCategoryIndex == index
+                                                  ? FontWeight.w700
+                                                  : FontWeight.w400,
+                                          color: _selectedCategoryIndex == index
+                                              ? AppColors.black
+                                              : AppColors.grey,
+                                        ),
+                                        child: Text(_categories[index]),
                                       ),
-                                      child: Text(_categories[index]),
-                                    ),
-                                    const SizedBox(height: 7),
-                                  ],
+                                      const SizedBox(height: 7),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ),
