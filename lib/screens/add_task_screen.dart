@@ -214,53 +214,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   void _addSubTask() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
-      builder: (context) {
-        final controller = TextEditingController();
-        return AlertDialog(
-          title: const Text('Thêm công việc con'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Nhập tên công việc con',
-            ),
-            onSubmitted: (value) {
-              if (value.isNotEmpty) {
-                setState(() {
-                  _subTasks.add(value);
-                  _subTaskControllers.add(TextEditingController(text: value));
-                });
-                Navigator.of(context).pop();
-              }
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                controller.dispose();
-                Navigator.of(context).pop();
-              },
-              child: const Text('Hủy'),
-            ),
-            TextButton(
-              onPressed: () {
-                if (controller.text.isNotEmpty) {
-                  setState(() {
-                    _subTasks.add(controller.text);
-                    _subTaskControllers
-                        .add(TextEditingController(text: controller.text));
-                  });
-                  controller.dispose();
-                  Navigator.of(context).pop();
-                }
-              },
-              child: const Text('Thêm'),
-            ),
-          ],
-        );
-      },
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _AddSubTaskModal(
+        onAdd: (value) {
+          if (value.trim().isNotEmpty && mounted) {
+            setState(() {
+              _subTasks.add(value.trim());
+              _subTaskControllers.add(
+                TextEditingController(text: value.trim()),
+              );
+            });
+          }
+        },
+      ),
     );
   }
 
@@ -1262,6 +1231,229 @@ class _CustomDateTimePickerState extends State<_CustomDateTimePicker> {
     } else {
       return '${date.day}/${date.month}/${date.year}';
     }
+  }
+}
+
+class _AddSubTaskModal extends StatefulWidget {
+  final Function(String) onAdd;
+
+  const _AddSubTaskModal({
+    required this.onAdd,
+  });
+
+  @override
+  State<_AddSubTaskModal> createState() => _AddSubTaskModalState();
+}
+
+class _AddSubTaskModalState extends State<_AddSubTaskModal> {
+  late TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _handleAdd() {
+    if (_controller.text.trim().isNotEmpty) {
+      widget.onAdd(_controller.text.trim());
+      Navigator.of(context).pop();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
+      child: Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.5,
+        ),
+        decoration: const BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(AppDimensions.borderRadiusXLarge),
+          ),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: AppDimensions.paddingMedium),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: AppColors.greyLight,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Title
+            Padding(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Thêm công việc con',
+                      style: R.styles.heading2(
+                        color: AppColors.black,
+                        weight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: AppColors.grey),
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ],
+              ),
+            ),
+            // Input field
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppDimensions.paddingLarge,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Tên công việc con',
+                    style: R.styles.body(
+                      size: 14,
+                      weight: FontWeight.w600,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.paddingSmall),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(
+                        AppDimensions.borderRadiusMedium,
+                      ),
+                      border: Border.all(
+                        color: AppColors.greyLight,
+                        width: 1,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _controller,
+                      autofocus: true,
+                      style: R.styles.body(
+                        size: 16,
+                        color: AppColors.black,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Nhập tên công việc con',
+                        hintStyle: R.styles.body(
+                          size: 16,
+                          color: AppColors.grey,
+                        ),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        contentPadding: const EdgeInsets.all(
+                          AppDimensions.paddingMedium,
+                        ),
+                      ),
+                      onSubmitted: (_) => _handleAdd(),
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                ],
+              ),
+            ),
+            // Action Buttons
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              decoration: BoxDecoration(
+                color: AppColors.white,
+                border: Border(
+                  top: BorderSide(
+                    color: AppColors.greyLight,
+                    width: 1,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                      },
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppDimensions.paddingSmall,
+                        ),
+                        minimumSize: const Size(0, 44),
+                        side: const BorderSide(
+                          color: AppColors.primary,
+                          width: 1,
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                        ),
+                      ),
+                      child: Text(
+                        'Hủy',
+                        style: R.styles.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppDimensions.paddingSmall),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: _handleAdd,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: AppColors.white,
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppDimensions.paddingSmall,
+                        ),
+                        minimumSize: const Size(0, 44),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(
+                            AppDimensions.borderRadiusMedium,
+                          ),
+                        ),
+                        elevation: 0,
+                      ),
+                      child: Text(
+                        'Thêm',
+                        style: R.styles.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: AppColors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
