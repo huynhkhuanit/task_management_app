@@ -15,7 +15,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Task Management',
       theme: ThemeData(
-        // ===== Colors =====
+        // ===== Colors =====screen.png
         colorScheme: ColorScheme.fromSeed(seedColor: AppColors.primary),
         useMaterial3: true,
         brightness: Brightness.light,

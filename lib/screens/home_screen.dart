@@ -9,6 +9,7 @@ import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'statistics_screen.dart';
+import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -215,16 +216,8 @@ class _HomeScreenState extends State<HomeScreen> {
           const TasksScreen(showBottomNavigationBar: false),
           // Statistics screen (index 2)
           const StatisticsScreen(),
-          // Profile screen (index 3) - TODO: Create later
-          Center(
-            child: Text(
-              'Hồ sơ',
-              style: R.styles.heading2(
-                color: AppColors.black,
-                weight: FontWeight.w700,
-              ),
-            ),
-          ),
+          // Profile screen (index 3)
+          const ProfileScreen(),
         ],
       ),
       bottomNavigationBar: CustomBottomNavigationBar(
