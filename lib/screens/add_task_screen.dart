@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:file_picker/file_picker.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import '../utils/navigation_helper.dart';
+import 'categories_screen.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({Key? key}) : super(key: key);
@@ -20,6 +23,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   bool _reminderEnabled = true;
   final List<String> _subTasks = [];
   final List<TextEditingController> _subTaskControllers = [];
+  final List<PlatformFile> _attachedFiles = [];
+  bool _filesExpanded = false;
 
   @override
   void initState() {
@@ -38,50 +43,122 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     super.dispose();
   }
 
-  Future<void> _selectDateAndTime(BuildContext context) async {
-    final DateTime? pickedDate = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: AppColors.white,
-              surface: AppColors.white,
-              onSurface: AppColors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (pickedDate != null) {
-      final TimeOfDay? pickedTime = await showTimePicker(
-        context: context,
-        initialTime: _selectedTime ?? TimeOfDay.now(),
-        builder: (context, child) {
-          return Theme(
-            data: Theme.of(context).copyWith(
-              colorScheme: const ColorScheme.light(
-                primary: AppColors.primary,
-                onPrimary: AppColors.white,
-                surface: AppColors.white,
-                onSurface: AppColors.black,
-              ),
-            ),
-            child: child!,
-          );
+  Future<void> _showCategoryPicker() async {
+    final result = await NavigationHelper.pushSlideTransition<String>(
+      context,
+      CategoriesScreen(
+        selectedCategoryName: _selectedCategory,
+        onCategorySelected: (categoryName) {
+          Navigator.of(context).pop(categoryName);
         },
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        _selectedCategory = result;
+      });
+    }
+  }
+
+  Future<void> _showDateTimePicker() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _CustomDateTimePicker(
+        initialDate: _selectedDate ?? DateTime.now(),
+        initialTime: _selectedTime ?? const TimeOfDay(hour: 10, minute: 0),
+        onDateSelected: (date) {
+          setState(() {
+            _selectedDate = date;
+          });
+        },
+        onTimeSelected: (time) {
+          setState(() {
+            _selectedTime = time;
+          });
+        },
+      ),
+    );
+  }
+
+  Future<void> _pickFiles() async {
+    try {
+      // Try to pick files with custom extensions for better compatibility
+      final result = await FilePicker.platform.pickFiles(
+        allowMultiple: true,
+        type: FileType.custom,
+        allowedExtensions: [
+          'pdf',
+          'doc',
+          'docx',
+          'xls',
+          'xlsx',
+          'jpg',
+          'jpeg',
+          'png',
+          'gif',
+          'txt'
+        ],
       );
-      if (pickedTime != null) {
+
+      if (result != null && result.files.isNotEmpty) {
         setState(() {
-          _selectedDate = pickedDate;
-          _selectedTime = pickedTime;
+          _attachedFiles.addAll(result.files);
+          _filesExpanded = true;
         });
       }
+    } catch (e) {
+      if (mounted) {
+        // Show user-friendly error message
+        final errorMessage = e.toString().contains('MissingPluginException')
+            ? 'Chức năng chọn file chưa được hỗ trợ. Vui lòng khởi động lại ứng dụng hoặc cài đặt lại.'
+            : 'Lỗi khi chọn file: ${e.toString()}';
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
+  void _removeFile(int index) {
+    setState(() {
+      _attachedFiles.removeAt(index);
+      if (_attachedFiles.isEmpty) {
+        _filesExpanded = false;
+      }
+    });
+  }
+
+  String _formatFileSize(int bytes) {
+    if (bytes < 1024) return '$bytes B';
+    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  IconData _getFileIcon(String? extension) {
+    switch (extension?.toLowerCase()) {
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      case 'jpg':
+      case 'jpeg':
+      case 'png':
+      case 'gif':
+        return Icons.image;
+      case 'doc':
+      case 'docx':
+        return Icons.description;
+      case 'xls':
+      case 'xlsx':
+        return Icons.table_chart;
+      default:
+        return Icons.insert_drive_file;
     }
   }
 
@@ -214,7 +291,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         Text(
           label,
           style: R.styles.body(
-            size: 14,
+            size: 18,
             weight: FontWeight.w600,
             color: AppColors.black,
           ),
@@ -284,12 +361,6 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
               ),
             ),
             trailing,
-            if (onTap != null)
-              const Icon(
-                Icons.chevron_right,
-                color: AppColors.grey,
-                size: 20,
-              ),
           ],
         ),
       ),
@@ -376,12 +447,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                 color: AppColors.black,
                               ),
                             ),
-                            onTap: () {
-                              // TODO: Show category picker
-                              setState(() {
-                                _selectedCategory = 'Công việc';
-                              });
-                            },
+                            onTap: _showCategoryPicker,
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
 
@@ -409,7 +475,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                 ),
                               ],
                             ),
-                            onTap: () => _selectDateAndTime(context),
+                            onTap: _showDateTimePicker,
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
 
@@ -479,11 +545,142 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           _buildTaskDetailItem(
                             icon: Icons.attach_file,
                             label: 'Đính kèm tệp',
-                            trailing: const SizedBox.shrink(),
+                            trailing: Icon(
+                              _filesExpanded
+                                  ? Icons.keyboard_arrow_down
+                                  : Icons.chevron_right,
+                              color: AppColors.grey,
+                              size: 20,
+                            ),
                             onTap: () {
-                              // TODO: Show file picker
+                              if (_attachedFiles.isEmpty) {
+                                _pickFiles();
+                              } else {
+                                setState(() {
+                                  _filesExpanded = !_filesExpanded;
+                                });
+                              }
                             },
                           ),
+                          if (_filesExpanded && _attachedFiles.isNotEmpty) ...[
+                            Divider(height: 1, color: AppColors.greyLight),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: AppDimensions.paddingMedium,
+                                horizontal: AppDimensions.paddingMedium,
+                              ),
+                              height: 100,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _attachedFiles.length,
+                                itemBuilder: (context, index) {
+                                  final file = _attachedFiles[index];
+                                  return Container(
+                                    width: 80,
+                                    margin: const EdgeInsets.only(
+                                      right: AppDimensions.paddingSmall,
+                                    ),
+                                    child: Column(
+                                      children: [
+                                        Stack(
+                                          children: [
+                                            Container(
+                                              width: 60,
+                                              height: 60,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.greyLight
+                                                    .withOpacity(0.3),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                  AppDimensions
+                                                      .borderRadiusMedium,
+                                                ),
+                                              ),
+                                              child: Icon(
+                                                _getFileIcon(file.extension),
+                                                color: AppColors.primary,
+                                                size: 30,
+                                              ),
+                                            ),
+                                            Positioned(
+                                              right: 0,
+                                              top: 0,
+                                              child: GestureDetector(
+                                                onTap: () => _removeFile(index),
+                                                child: Container(
+                                                  width: 20,
+                                                  height: 20,
+                                                  decoration:
+                                                      const BoxDecoration(
+                                                    color: AppColors.error,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                  child: const Icon(
+                                                    Icons.close,
+                                                    color: AppColors.white,
+                                                    size: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Expanded(
+                                          child: Text(
+                                            file.name.length > 10
+                                                ? '${file.name.substring(0, 10)}...'
+                                                : file.name,
+                                            style: R.styles.body(
+                                              size: 10,
+                                              color: AppColors.black,
+                                            ),
+                                            textAlign: TextAlign.center,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatFileSize(file.size),
+                                          style: R.styles.caption(
+                                            color: AppColors.grey,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                            InkWell(
+                              onTap: _pickFiles,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppDimensions.paddingMedium,
+                                  vertical: AppDimensions.paddingSmall,
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.add,
+                                      color: AppColors.primary,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(
+                                        width: AppDimensions.paddingSmall),
+                                    Text(
+                                      'Thêm file',
+                                      style: R.styles.body(
+                                        size: 14,
+                                        color: AppColors.primary,
+                                        weight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
                           Divider(height: 1, color: AppColors.greyLight),
 
                           // Set Reminder
@@ -498,6 +695,11 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                                 });
                               },
                             ),
+                            onTap: () {
+                              setState(() {
+                                _reminderEnabled = !_reminderEnabled;
+                              });
+                            },
                           ),
                         ],
                       ),
@@ -508,7 +710,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                     Text(
                       'Công việc con',
                       style: R.styles.body(
-                        size: 14,
+                        size: 18,
                         weight: FontWeight.w600,
                         color: AppColors.black,
                       ),
@@ -747,11 +949,333 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       ),
     );
   }
+}
 
-  Widget _CustomAnimatedSwitch({
-    required bool value,
-    required ValueChanged<bool> onChanged,
-  }) {
+class _CustomDateTimePicker extends StatefulWidget {
+  final DateTime initialDate;
+  final TimeOfDay initialTime;
+  final ValueChanged<DateTime> onDateSelected;
+  final ValueChanged<TimeOfDay> onTimeSelected;
+
+  const _CustomDateTimePicker({
+    required this.initialDate,
+    required this.initialTime,
+    required this.onDateSelected,
+    required this.onTimeSelected,
+  });
+
+  @override
+  State<_CustomDateTimePicker> createState() => _CustomDateTimePickerState();
+}
+
+class _CustomDateTimePickerState extends State<_CustomDateTimePicker> {
+  late DateTime _selectedDate;
+  late TimeOfDay _selectedTime;
+  late FixedExtentScrollController _hourController;
+  late FixedExtentScrollController _minuteController;
+  late FixedExtentScrollController _periodController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.initialDate;
+    _selectedTime = widget.initialTime;
+
+    // Initialize hour controller (1-12)
+    final hour12 = widget.initialTime.hour == 0
+        ? 12
+        : (widget.initialTime.hour > 12
+            ? widget.initialTime.hour - 12
+            : widget.initialTime.hour);
+    _hourController = FixedExtentScrollController(
+      initialItem: hour12 - 1, // 0-based index
+    );
+
+    _minuteController = FixedExtentScrollController(
+      initialItem: widget.initialTime.minute,
+    );
+
+    _periodController = FixedExtentScrollController(
+      initialItem: widget.initialTime.hour >= 12 ? 1 : 0,
+    );
+  }
+
+  @override
+  void dispose() {
+    _hourController.dispose();
+    _minuteController.dispose();
+    _periodController.dispose();
+    super.dispose();
+  }
+
+  void _updateTime() {
+    final hour = _hourController.selectedItem + 1;
+    final minute = _minuteController.selectedItem;
+    final isPM = _periodController.selectedItem == 1;
+    final newHour =
+        isPM ? (hour == 12 ? 12 : hour + 12) : (hour == 12 ? 0 : hour);
+
+    setState(() {
+      _selectedTime = TimeOfDay(hour: newHour, minute: minute);
+    });
+    widget.onTimeSelected(_selectedTime);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.7,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.borderRadiusXLarge),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: AppDimensions.paddingMedium),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.greyLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Title
+          Padding(
+            padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Chọn ngày & giờ',
+                    style: R.styles.heading2(
+                      color: AppColors.black,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    widget.onDateSelected(_selectedDate);
+                    widget.onTimeSelected(_selectedTime);
+                    Navigator.of(context).pop();
+                  },
+                  child: Text(
+                    'Xong',
+                    style: R.styles.body(
+                      size: 16,
+                      weight: FontWeight.w600,
+                      color: AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(context).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Date Picker
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingLarge,
+                    ),
+                    child: _CustomDatePicker(
+                      selectedDate: _selectedDate,
+                      onDateSelected: (date) {
+                        setState(() {
+                          _selectedDate = date;
+                        });
+                        widget.onDateSelected(date);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                  // Time Picker
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingLarge,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Giờ',
+                          style: R.styles.body(
+                            size: 16,
+                            weight: FontWeight.w700,
+                            color: AppColors.black,
+                          ),
+                        ),
+                        const SizedBox(height: AppDimensions.paddingMedium),
+                        SizedBox(
+                          height: 200,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              // Hour picker
+                              Expanded(
+                                child: ListWheelScrollView.useDelegate(
+                                  controller: _hourController,
+                                  itemExtent: 50,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  onSelectedItemChanged: (index) =>
+                                      _updateTime(),
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    builder: (context, index) {
+                                      final hour = index + 1;
+                                      final isSelected =
+                                          _hourController.selectedItem == index;
+                                      return Center(
+                                        child: Text(
+                                          hour.toString().padLeft(2, '0'),
+                                          style: R.styles.body(
+                                            size: isSelected ? 24 : 18,
+                                            weight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w400,
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.grey,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    childCount: 12,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                ':',
+                                style: R.styles.body(
+                                  size: 24,
+                                  weight: FontWeight.w700,
+                                  color: AppColors.black,
+                                ),
+                              ),
+                              // Minute picker
+                              Expanded(
+                                child: ListWheelScrollView.useDelegate(
+                                  controller: _minuteController,
+                                  itemExtent: 50,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  onSelectedItemChanged: (index) =>
+                                      _updateTime(),
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    builder: (context, index) {
+                                      final minute = index;
+                                      final isSelected =
+                                          _minuteController.selectedItem ==
+                                              index;
+                                      return Center(
+                                        child: Text(
+                                          minute.toString().padLeft(2, '0'),
+                                          style: R.styles.body(
+                                            size: isSelected ? 24 : 18,
+                                            weight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w400,
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.grey,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    childCount: 60,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(
+                                  width: AppDimensions.paddingMedium),
+                              // AM/PM picker
+                              SizedBox(
+                                width: 80,
+                                child: ListWheelScrollView.useDelegate(
+                                  controller: _periodController,
+                                  itemExtent: 50,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  onSelectedItemChanged: (index) =>
+                                      _updateTime(),
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    builder: (context, index) {
+                                      final period = index == 0 ? 'AM' : 'PM';
+                                      final isSelected =
+                                          _periodController.selectedItem ==
+                                              index;
+                                      return Center(
+                                        child: Text(
+                                          period,
+                                          style: R.styles.body(
+                                            size: isSelected ? 20 : 16,
+                                            weight: isSelected
+                                                ? FontWeight.w700
+                                                : FontWeight.w400,
+                                            color: isSelected
+                                                ? AppColors.primary
+                                                : AppColors.grey,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    childCount: 2,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(date.year, date.month, date.day);
+
+    if (selected == today) {
+      return 'Hôm nay';
+    } else if (selected == today.add(const Duration(days: 1))) {
+      return 'Ngày mai';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+}
+
+class _CustomAnimatedSwitch extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const _CustomAnimatedSwitch({
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () => onChanged(!value),
       child: AnimatedContainer(
@@ -818,6 +1342,280 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CustomDatePicker extends StatefulWidget {
+  final DateTime selectedDate;
+  final ValueChanged<DateTime> onDateSelected;
+
+  const _CustomDatePicker({
+    required this.selectedDate,
+    required this.onDateSelected,
+  });
+
+  @override
+  State<_CustomDatePicker> createState() => _CustomDatePickerState();
+}
+
+class _CustomDatePickerState extends State<_CustomDatePicker> {
+  late DateTime _selectedDate;
+  late DateTime _currentMonth;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedDate = widget.selectedDate;
+    _currentMonth = DateTime(_selectedDate.year, _selectedDate.month);
+  }
+
+  String _getMonthYearText(DateTime date) {
+    final months = [
+      'Tháng 1',
+      'Tháng 2',
+      'Tháng 3',
+      'Tháng 4',
+      'Tháng 5',
+      'Tháng 6',
+      'Tháng 7',
+      'Tháng 8',
+      'Tháng 9',
+      'Tháng 10',
+      'Tháng 11',
+      'Tháng 12',
+    ];
+    return '${months[date.month - 1]}, ${date.year}';
+  }
+
+  String _formatDate(DateTime date) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final selected = DateTime(date.year, date.month, date.day);
+
+    if (selected == today) {
+      return 'Hôm nay';
+    } else if (selected == today.add(const Duration(days: 1))) {
+      return 'Ngày mai';
+    } else {
+      return '${date.day}/${date.month}/${date.year}';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final firstDayOfMonth =
+        DateTime(_currentMonth.year, _currentMonth.month, 1);
+    final lastDayOfMonth =
+        DateTime(_currentMonth.year, _currentMonth.month + 1, 0);
+    final daysInMonth = lastDayOfMonth.day;
+    final firstWeekday = firstDayOfMonth.weekday % 7; // 0 = Sunday
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Date Display Button
+        InkWell(
+          onTap: () {
+            // Scroll to calendar if needed
+          },
+          child: Container(
+            padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(
+                AppDimensions.borderRadiusMedium,
+              ),
+              border: Border.all(
+                color: AppColors.primaryLight,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(
+                  Icons.calendar_today,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
+                const SizedBox(width: AppDimensions.paddingSmall),
+                Text(
+                  _formatDate(_selectedDate),
+                  style: R.styles.body(
+                    size: 16,
+                    weight: FontWeight.w600,
+                    color: AppColors.primary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: AppDimensions.paddingLarge),
+        // Calendar
+        Container(
+          padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+          decoration: BoxDecoration(
+            color: AppColors.greyLight.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(
+              AppDimensions.borderRadiusLarge,
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Month navigation
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon:
+                        const Icon(Icons.chevron_left, color: AppColors.black),
+                    onPressed: () {
+                      setState(() {
+                        _currentMonth = DateTime(
+                          _currentMonth.year,
+                          _currentMonth.month - 1,
+                        );
+                      });
+                    },
+                  ),
+                  Text(
+                    _getMonthYearText(_currentMonth),
+                    style: R.styles.body(
+                      size: 16,
+                      weight: FontWeight.w700,
+                      color: AppColors.black,
+                    ),
+                  ),
+                  IconButton(
+                    icon:
+                        const Icon(Icons.chevron_right, color: AppColors.black),
+                    onPressed: () {
+                      setState(() {
+                        _currentMonth = DateTime(
+                          _currentMonth.year,
+                          _currentMonth.month + 1,
+                        );
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppDimensions.paddingMedium),
+              // Days of week
+              Row(
+                children: ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
+                    .map((day) => Expanded(
+                          child: Center(
+                            child: Text(
+                              day,
+                              style: R.styles.body(
+                                size: 12,
+                                weight: FontWeight.w600,
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+              const SizedBox(height: AppDimensions.paddingSmall),
+              // Calendar grid - Use Wrap or reduce spacing
+              ...List.generate(
+                (daysInMonth + firstWeekday + 6) ~/ 7,
+                (weekIndex) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 1),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: List.generate(7, (dayIndex) {
+                        final dayNumber =
+                            weekIndex * 7 + dayIndex - firstWeekday + 1;
+                        final isCurrentMonth =
+                            dayNumber > 0 && dayNumber <= daysInMonth;
+                        final date = isCurrentMonth
+                            ? DateTime(
+                                _currentMonth.year,
+                                _currentMonth.month,
+                                dayNumber,
+                              )
+                            : null;
+                        final isToday = date != null &&
+                            date.year == DateTime.now().year &&
+                            date.month == DateTime.now().month &&
+                            date.day == DateTime.now().day;
+                        final isSelected = date != null &&
+                            date.year == _selectedDate.year &&
+                            date.month == _selectedDate.month &&
+                            date.day == _selectedDate.day;
+                        final now = DateTime.now();
+                        final today = DateTime(now.year, now.month, now.day);
+                        final dateOnly = date != null
+                            ? DateTime(date.year, date.month, date.day)
+                            : null;
+                        final isPast =
+                            dateOnly != null && dateOnly.isBefore(today);
+
+                        return Expanded(
+                          child: GestureDetector(
+                            onTap: isCurrentMonth && !isPast
+                                ? () {
+                                    setState(() {
+                                      _selectedDate = date!;
+                                    });
+                                    widget.onDateSelected(_selectedDate);
+                                  }
+                                : null,
+                            child: Container(
+                              height: 36,
+                              margin: const EdgeInsets.all(1.5),
+                              decoration: BoxDecoration(
+                                color: isToday
+                                    ? AppColors.primary
+                                    : isSelected
+                                        ? AppColors.primaryLight
+                                            .withOpacity(0.3)
+                                        : Colors.transparent,
+                                shape: BoxShape.circle,
+                                border: isSelected && !isToday
+                                    ? Border.all(
+                                        color: AppColors.primary,
+                                        width: 2,
+                                      )
+                                    : null,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  isCurrentMonth ? dayNumber.toString() : '',
+                                  style: R.styles.body(
+                                    size: 13,
+                                    weight: isSelected || isToday
+                                        ? FontWeight.w700
+                                        : FontWeight.w500,
+                                    color: isPast
+                                        ? AppColors.grey.withOpacity(0.6)
+                                        : isToday
+                                            ? AppColors.white
+                                            : isSelected
+                                                ? AppColors.primary
+                                                : AppColors.black,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
