@@ -3,45 +3,33 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 
-class EditProfileScreen extends StatefulWidget {
-  final String initialName;
-  final String initialEmail;
-
-  const EditProfileScreen({
-    Key? key,
-    this.initialName = 'Lê Huỳnh Đức',
-    this.initialEmail = 'lehuynhduc@email.com',
-  }) : super(key: key);
+class ChangePasswordScreen extends StatefulWidget {
+  const ChangePasswordScreen({Key? key}) : super(key: key);
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  State<ChangePasswordScreen> createState() => _ChangePasswordScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
-  late TextEditingController _nameController;
-  late TextEditingController _emailController;
+class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _formKey = GlobalKey<FormState>();
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController(text: widget.initialName);
-    _emailController = TextEditingController(text: widget.initialEmail);
-  }
+  final _currentPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _emailController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
-  void _handleSave() {
+  void _handleChangePassword() {
     if (_formKey.currentState!.validate()) {
-      // TODO: Implement save logic
+      // TODO: Implement change password logic
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Đã lưu thay đổi'),
+          content: Text('Đã đổi mật khẩu thành công'),
         ),
       );
       Navigator.of(context).pop();
@@ -52,28 +40,29 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     Navigator.of(context).pop();
   }
 
-  void _handleChangeAvatar() {
-    // TODO: Implement image picker
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Chức năng thay đổi ảnh đại diện'),
-      ),
-    );
-  }
-
-  String? _validateName(String? value) {
+  String? _validateCurrentPassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Vui lòng nhập tên';
+      return 'Vui lòng nhập mật khẩu hiện tại';
     }
     return null;
   }
 
-  String? _validateEmail(String? value) {
+  String? _validateNewPassword(String? value) {
     if (value == null || value.isEmpty) {
-      return 'Vui lòng nhập email';
+      return 'Vui lòng nhập mật khẩu mới';
     }
-    if (!value.contains('@')) {
-      return 'Email không hợp lệ';
+    if (value.length < 6) {
+      return 'Mật khẩu phải có ít nhất 6 ký tự';
+    }
+    return null;
+  }
+
+  String? _validateConfirmPassword(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Vui lòng xác nhận mật khẩu mới';
+    }
+    if (value != _newPasswordController.text) {
+      return 'Mật khẩu không khớp.';
     }
     return null;
   }
@@ -94,7 +83,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         ),
         centerTitle: true,
         title: Text(
-          'Chỉnh Sửa Hồ Sơ',
+          'Đổi Mật Khẩu',
           style: R.styles.heading2(
             color: AppColors.black,
             weight: FontWeight.w700,
@@ -115,70 +104,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     children: [
                       const SizedBox(height: AppDimensions.paddingXLarge),
 
-                      // Avatar Section
-                      Stack(
-                        children: [
-                          Container(
-                            width: 120,
-                            height: 120,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFFE5D4), // Light orange
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.person,
-                              size: 70,
-                              color: AppColors.black,
-                            ),
-                          ),
-                          Positioned(
-                            bottom: 0,
-                            right: 0,
-                            child: GestureDetector(
-                              onTap: _handleChangeAvatar,
-                              child: Container(
-                                width: 40,
-                                height: 40,
-                                decoration: BoxDecoration(
-                                  color: AppColors.primary,
-                                  shape: BoxShape.circle,
-                                  border: Border.all(
-                                    color: AppColors.white,
-                                    width: 3,
-                                  ),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 20,
-                                  color: AppColors.white,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-
-                      const SizedBox(height: AppDimensions.paddingXLarge),
-
-                      // Name Field
+                      // Current Password Field
                       CustomInputField(
-                        label: 'Tên',
-                        controller: _nameController,
-                        validator: _validateName,
-                        hintText: 'Nguyễn Văn A',
-                        fillColor: AppColors.greyLight,
+                        label: 'Mật khẩu hiện tại',
+                        controller: _currentPasswordController,
+                        validator: _validateCurrentPassword,
+                        isPassword: true,
+                        hintText: 'Nhập mật khẩu hiện tại',
                       ),
 
                       const SizedBox(height: AppDimensions.paddingLarge),
 
-                      // Email Field
+                      // New Password Field
                       CustomInputField(
-                        label: 'Email',
-                        controller: _emailController,
-                        validator: _validateEmail,
-                        keyboardType: TextInputType.emailAddress,
-                        hintText: 'nguyenvana@email.com',
-                        fillColor: AppColors.greyLight,
+                        label: 'Mật khẩu mới',
+                        controller: _newPasswordController,
+                        validator: _validateNewPassword,
+                        isPassword: true,
+                        hintText: 'Nhập mật khẩu mới',
+                      ),
+
+                      const SizedBox(height: AppDimensions.paddingLarge),
+
+                      // Confirm Password Field
+                      CustomInputField(
+                        label: 'Xác nhận mật khẩu mới',
+                        controller: _confirmPasswordController,
+                        validator: _validateConfirmPassword,
+                        isPassword: true,
+                        hintText: 'Nhập lại mật khẩu mới',
                       ),
 
                       const SizedBox(height: AppDimensions.paddingXLarge),
@@ -235,7 +189,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(width: AppDimensions.paddingSmall),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _handleSave,
+                        onPressed: _handleChangePassword,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.white,
@@ -251,7 +205,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           elevation: 0,
                         ),
                         child: Text(
-                          'Lưu Thay Đổi',
+                          'Đổi Mật Khẩu',
                           style: R.styles.body(
                             size: 16,
                             weight: FontWeight.w600,

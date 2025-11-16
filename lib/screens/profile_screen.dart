@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../widgets/custom_switch.dart';
 import '../utils/navigation_helper.dart';
 import 'edit_profile_screen.dart';
+import 'change_password_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -66,7 +67,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           right: 0,
                           child: GestureDetector(
                             onTap: () {
-                              // TODO: Handle avatar edit
+                              NavigationHelper.pushSlideTransition(
+                                context,
+                                const EditProfileScreen(
+                                  initialName: 'Lê Huỳnh Đức',
+                                  initialEmail: 'lehuynhduc@email.com',
+                                ),
+                              );
                             },
                             child: Container(
                               width: 32,
@@ -142,7 +149,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.lock_outline,
                       title: 'Đổi mật khẩu',
                       onTap: () {
-                        // TODO: Navigate to change password screen
+                        NavigationHelper.pushSlideTransition(
+                          context,
+                          const ChangePasswordScreen(),
+                        );
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),
