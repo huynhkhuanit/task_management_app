@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
+import '../widgets/custom_switch.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -339,10 +340,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ),
-          Switch(
+          CustomSwitch(
             value: value,
             onChanged: onChanged,
-            activeColor: AppColors.primary,
           ),
         ],
       ),
