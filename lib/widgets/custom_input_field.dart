@@ -9,6 +9,7 @@ class CustomInputField extends StatefulWidget {
   final TextEditingController? controller;
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
+  final Color? fillColor;
 
   const CustomInputField({
     Key? key,
@@ -18,6 +19,7 @@ class CustomInputField extends StatefulWidget {
     this.controller,
     this.validator,
     this.keyboardType,
+    this.fillColor,
   }) : super(key: key);
 
   @override
@@ -54,7 +56,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
               color: AppColors.grey,
             ),
             filled: true,
-            fillColor: AppColors.white,
+            fillColor: widget.fillColor ?? AppColors.white,
             contentPadding: const EdgeInsets.symmetric(
               horizontal: AppDimensions.paddingMedium,
               vertical: AppDimensions.paddingMedium,

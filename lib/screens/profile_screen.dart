@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_switch.dart';
+import '../utils/navigation_helper.dart';
+import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -124,7 +126,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.person_outline,
                       title: 'Chỉnh sửa thông tin',
                       onTap: () {
-                        // TODO: Navigate to edit information screen
+                        NavigationHelper.pushSlideTransition(
+                          context,
+                          const EditProfileScreen(
+                            initialName: 'Lê Huỳnh Đức',
+                            initialEmail: 'lehuynhduc@email.com',
+                          ),
+                        );
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),
@@ -137,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         // TODO: Navigate to change password screen
                       },
                     ),
-                    const SizedBox(height: AppDimensions.paddingMedium),
+                    const SizedBox(height: AppDimensions.paddingSmall),
 
                     // Dark Mode
                     _buildMenuItemWithToggle(
