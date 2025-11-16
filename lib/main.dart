@@ -101,7 +101,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // ===== Card Theme =====
-        cardTheme: CardThemeData(
+        cardTheme: CardTheme(
           color: AppColors.white,
           elevation: 2,
           shape: RoundedRectangleBorder(
@@ -128,7 +128,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // ===== Dialog Theme =====
-        dialogTheme: DialogThemeData(
+        dialogTheme: DialogTheme(
           shape: RoundedRectangleBorder(
             borderRadius:
                 BorderRadius.circular(AppDimensions.borderRadiusLarge),
@@ -186,7 +186,7 @@ class MyApp extends StatelessWidget {
         ),
 
         // ===== Tab Bar Theme =====
-        tabBarTheme: TabBarThemeData(
+        tabBarTheme: TabBarTheme(
           labelStyle: SFProBody.mediumBold,
           unselectedLabelStyle: SFProBody.medium,
           labelColor: AppColors.primary,

@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_switch.dart';
+import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
+import 'notifications_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -15,6 +17,12 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isDarkMode = false;
+
+  int _getUnreadNotificationCount() {
+    // TODO: Replace with actual notification count from service/state
+    // For now, return a sample count (4 unread notifications)
+    return 4;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -172,11 +180,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     const SizedBox(height: AppDimensions.paddingSmall),
 
                     // Notifications
-                    _buildMenuItem(
+                    _buildMenuItemWithBadge(
                       icon: Icons.notifications_outlined,
                       title: 'Thông báo',
+                      badgeCount: _getUnreadNotificationCount(),
                       onTap: () {
-                        // TODO: Navigate to notifications screen
+                        NavigationHelper.pushSlideTransition(
+                          context,
+                          const NotificationsScreen(),
+                        );
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),
@@ -288,6 +300,70 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 icon,
                 color: AppColors.primary,
                 size: 20,
+              ),
+            ),
+            const SizedBox(width: AppDimensions.paddingMedium),
+            Expanded(
+              child: Text(
+                title,
+                style: R.styles.body(
+                  size: 16,
+                  color: AppColors.black,
+                ),
+              ),
+            ),
+            Icon(
+              Icons.chevron_right,
+              color: AppColors.grey,
+              size: 24,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMenuItemWithBadge({
+    required IconData icon,
+    required String title,
+    required int badgeCount,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusXLarge),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.paddingMedium,
+          vertical: AppDimensions.paddingMedium,
+        ),
+        decoration: BoxDecoration(
+          color: AppColors.white,
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.greyLight.withOpacity(0.5),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            NotificationBadge(
+              count: badgeCount,
+              child: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryLight.withOpacity(0.2),
+                  borderRadius:
+                      BorderRadius.circular(AppDimensions.borderRadiusSmall),
+                ),
+                child: Icon(
+                  icon,
+                  color: AppColors.primary,
+                  size: 20,
+                ),
               ),
             ),
             const SizedBox(width: AppDimensions.paddingMedium),

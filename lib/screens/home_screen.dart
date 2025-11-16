@@ -4,12 +4,14 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
+import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'statistics_screen.dart';
 import 'profile_screen.dart';
+import 'notifications_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -57,6 +59,12 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  int _getUnreadNotificationCount() {
+    // TODO: Replace with actual notification count from service/state
+    // For now, return a sample count (4 unread notifications)
+    return 4;
+  }
+
   Widget _buildHomeContent() {
     return SafeArea(
       child: Column(
@@ -96,15 +104,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     ],
                   ),
                 ),
-                // Notification icon
-                IconButton(
-                  icon: const Icon(
-                    Icons.notifications_outlined,
-                    color: AppColors.black,
+                // Notification icon with badge
+                NotificationBadge(
+                  count: _getUnreadNotificationCount(),
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      color: AppColors.black,
+                    ),
+                    onPressed: () {
+                      NavigationHelper.pushSlideTransition(
+                        context,
+                        const NotificationsScreen(),
+                      );
+                    },
                   ),
-                  onPressed: () {
-                    // TODO: Handle notification
-                  },
                 ),
               ],
             ),

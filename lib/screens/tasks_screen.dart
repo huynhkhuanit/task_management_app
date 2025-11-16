@@ -25,6 +25,11 @@ class _TasksScreenState extends State<TasksScreen> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
 
+  // Filter states
+  Set<TaskPriority> _selectedPriorities = {};
+  Set<TaskStatus> _selectedStatuses = {};
+  String? _selectedProject;
+
   final List<String> _categories = [
     'Tất cả',
     'Hôm nay',
@@ -109,6 +114,25 @@ class _TasksScreenState extends State<TasksScreen> {
           tasks.where((task) => task.status == TaskStatus.completed).toList();
     }
 
+    // Filter by priority
+    if (_selectedPriorities.isNotEmpty) {
+      tasks = tasks
+          .where((task) => _selectedPriorities.contains(task.priority))
+          .toList();
+    }
+
+    // Filter by status
+    if (_selectedStatuses.isNotEmpty) {
+      tasks = tasks
+          .where((task) => _selectedStatuses.contains(task.status))
+          .toList();
+    }
+
+    // Filter by project
+    if (_selectedProject != null && _selectedProject!.isNotEmpty) {
+      tasks = tasks.where((task) => task.project == _selectedProject).toList();
+    }
+
     // Filter by search query
     if (_searchController.text.isNotEmpty) {
       final query = _searchController.text.toLowerCase();
@@ -120,6 +144,16 @@ class _TasksScreenState extends State<TasksScreen> {
     }
 
     return tasks;
+  }
+
+  List<String> get _availableProjects {
+    return _allTasks.map((task) => task.project).toSet().toList();
+  }
+
+  bool get _hasActiveFilters {
+    return _selectedPriorities.isNotEmpty ||
+        _selectedStatuses.isNotEmpty ||
+        (_selectedProject != null && _selectedProject!.isNotEmpty);
   }
 
   String _formatDueDate(DateTime? dueDate) {
@@ -352,23 +386,49 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                     const SizedBox(width: AppDimensions.paddingSmall),
                     // Filter button
-                    Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        color: AppColors.primaryLight.withOpacity(0.2),
-                        shape: BoxShape.circle,
-                      ),
-                      child: IconButton(
-                        icon: const Icon(
-                          Icons.tune,
-                          color: AppColors.primary,
-                          size: AppDimensions.iconSmall,
+                    Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: _hasActiveFilters
+                                ? AppColors.primary
+                                : AppColors.primaryLight.withOpacity(0.2),
+                            shape: BoxShape.circle,
+                          ),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.tune,
+                              color: _hasActiveFilters
+                                  ? AppColors.white
+                                  : AppColors.primary,
+                              size: AppDimensions.iconSmall,
+                            ),
+                            onPressed: () {
+                              _showFilterBottomSheet();
+                            },
+                          ),
                         ),
-                        onPressed: () {
-                          // TODO: Show filter dialog
-                        },
-                      ),
+                        if (_hasActiveFilters)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: AppColors.error,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: AppColors.white,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
@@ -500,11 +560,367 @@ class _TasksScreenState extends State<TasksScreen> {
               backgroundColor: AppColors.primary,
               elevation: 0,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+                borderRadius:
+                    BorderRadius.circular(AppDimensions.borderRadiusLarge),
               ),
               child: const Icon(Icons.add, color: AppColors.white),
             )
           : null,
+    );
+  }
+
+  void _showFilterBottomSheet() {
+    // Temporary state for filter bottom sheet
+    Set<TaskPriority> tempPriorities = Set.from(_selectedPriorities);
+    Set<TaskStatus> tempStatuses = Set.from(_selectedStatuses);
+    String? tempProject = _selectedProject;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          constraints: BoxConstraints(
+            maxHeight: MediaQuery.of(context).size.height * 0.85,
+          ),
+          decoration: const BoxDecoration(
+            color: AppColors.white,
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(AppDimensions.borderRadiusXLarge),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: AppDimensions.paddingMedium),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.greyLight,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              // Title Section
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppDimensions.paddingLarge,
+                  AppDimensions.paddingLarge,
+                  AppDimensions.paddingLarge,
+                  AppDimensions.paddingMedium,
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Bộ lọc',
+                        style: R.styles.heading2(
+                          color: AppColors.black,
+                          weight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    if (tempPriorities.isNotEmpty ||
+                        tempStatuses.isNotEmpty ||
+                        (tempProject != null && tempProject!.isNotEmpty))
+                      TextButton(
+                        onPressed: () {
+                          setModalState(() {
+                            tempPriorities.clear();
+                            tempStatuses.clear();
+                            tempProject = null;
+                          });
+                        },
+                        child: Text(
+                          'Đặt lại',
+                          style: R.styles.body(
+                            size: 14,
+                            weight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              // Scrollable Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppDimensions.paddingLarge,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Priority Filter Section
+                      _buildFilterSection(
+                        title: 'Mức độ ưu tiên',
+                        children: TaskPriority.values.map((priority) {
+                          final isSelected = tempPriorities.contains(priority);
+                          return _buildFilterChip(
+                            label: _getPriorityText(priority),
+                            isSelected: isSelected,
+                            color: _getPriorityColor(priority),
+                            onTap: () {
+                              setModalState(() {
+                                if (isSelected) {
+                                  tempPriorities.remove(priority);
+                                } else {
+                                  tempPriorities.add(priority);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: AppDimensions.paddingMedium),
+                      // Divider
+                      Divider(
+                        color: AppColors.greyLight,
+                        thickness: 1,
+                        height: 1,
+                      ),
+                      const SizedBox(height: AppDimensions.paddingMedium),
+                      // Status Filter Section
+                      _buildFilterSection(
+                        title: 'Trạng thái',
+                        children: TaskStatus.values.map((status) {
+                          final isSelected = tempStatuses.contains(status);
+                          String statusText;
+                          Color statusColor;
+                          switch (status) {
+                            case TaskStatus.pending:
+                              statusText = 'Đang chờ';
+                              statusColor = AppColors.warning;
+                              break;
+                            case TaskStatus.completed:
+                              statusText = 'Hoàn thành';
+                              statusColor = AppColors.success;
+                              break;
+                            case TaskStatus.overdue:
+                              statusText = 'Quá hạn';
+                              statusColor = AppColors.error;
+                              break;
+                          }
+                          return _buildFilterChip(
+                            label: statusText,
+                            isSelected: isSelected,
+                            color: statusColor,
+                            onTap: () {
+                              setModalState(() {
+                                if (isSelected) {
+                                  tempStatuses.remove(status);
+                                } else {
+                                  tempStatuses.add(status);
+                                }
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: AppDimensions.paddingMedium),
+                      // Divider
+                      Divider(
+                        color: AppColors.greyLight,
+                        thickness: 1,
+                        height: 1,
+                      ),
+                      const SizedBox(height: AppDimensions.paddingMedium),
+                      // Project Filter Section
+                      _buildFilterSection(
+                        title: 'Dự án',
+                        children: _availableProjects.map((project) {
+                          final isSelected = tempProject == project;
+                          return _buildFilterChip(
+                            label: project,
+                            isSelected: isSelected,
+                            color: AppColors.primary,
+                            onTap: () {
+                              setModalState(() {
+                                tempProject = isSelected ? null : project;
+                              });
+                            },
+                          );
+                        }).toList(),
+                      ),
+                      const SizedBox(height: AppDimensions.paddingLarge),
+                    ],
+                  ),
+                ),
+              ),
+              // Action Buttons
+              Container(
+                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                decoration: BoxDecoration(
+                  color: AppColors.white,
+                  border: Border(
+                    top: BorderSide(
+                      color: AppColors.greyLight,
+                      width: 1,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                        },
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingSmall,
+                          ),
+                          minimumSize: const Size(0, 44),
+                          side: const BorderSide(
+                            color: AppColors.primary,
+                            width: 1,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusMedium,
+                            ),
+                          ),
+                        ),
+                        child: Text(
+                          'Hủy',
+                          style: R.styles.body(
+                            size: 16,
+                            weight: FontWeight.w600,
+                            color: AppColors.primary,
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.paddingSmall),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () {
+                          setState(() {
+                            _selectedPriorities = tempPriorities;
+                            _selectedStatuses = tempStatuses;
+                            _selectedProject = tempProject;
+                          });
+                          Navigator.of(context).pop();
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          foregroundColor: AppColors.white,
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingSmall,
+                          ),
+                          minimumSize: const Size(0, 44),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusMedium,
+                            ),
+                          ),
+                          elevation: 0,
+                        ),
+                        child: Text(
+                          'Áp dụng',
+                          style: R.styles.body(
+                            size: 16,
+                            weight: FontWeight.w600,
+                            color: AppColors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterSection({
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: R.styles.body(
+            size: 16,
+            weight: FontWeight.w700,
+            color: AppColors.black,
+          ),
+        ),
+        const SizedBox(height: AppDimensions.paddingMedium),
+        Wrap(
+          spacing: AppDimensions.paddingSmall,
+          runSpacing: AppDimensions.paddingSmall,
+          children: children,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required bool isSelected,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppDimensions.paddingMedium,
+          vertical: AppDimensions.paddingSmall,
+        ),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? color.withOpacity(0.15)
+              : AppColors.greyLight.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+          border: Border.all(
+            color: isSelected ? color : AppColors.greyLight,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isSelected)
+              Icon(
+                Icons.check_circle,
+                size: 16,
+                color: color,
+              )
+            else
+              Container(
+                width: 16,
+                height: 16,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: AppColors.grey,
+                    width: 1.5,
+                  ),
+                ),
+              ),
+            const SizedBox(width: AppDimensions.paddingSmall),
+            Text(
+              label,
+              style: R.styles.body(
+                size: 14,
+                weight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? color : AppColors.black,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
