@@ -42,13 +42,12 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      final identifier = _identifierController.text.trim();
-      final isEmail = identifier.contains('@');
-
-      if (isEmail) {
+      final email = _identifierController.text.trim();
+      
+      if (!_usePhoneLogin) {
         // Đăng nhập bằng email và password
         await _authService.signIn(
-          email: identifier,
+          email: email,
           password: _passwordController.text,
         );
 
@@ -60,13 +59,13 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
-        // Đăng nhập bằng số điện thoại - gửi OTP
-        await _authService.sendLoginOTP(identifier);
+        // Đăng nhập bằng email với OTP
+        await _authService.sendLoginOTP(email);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Đã gửi mã OTP đến số điện thoại của bạn'),
+              content: Text('Đã gửi mã OTP đến email của bạn'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -77,7 +76,7 @@ class _LoginScreenState extends State<LoginScreen> {
               NavigationHelper.pushReplacementSlideTransition(
                 context,
                 OTPVerificationScreen(
-                  phone: identifier,
+                  email: email,
                   isSignUp: false,
                 ),
               );
@@ -207,7 +206,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'Email',
+                            'Email + Mật khẩu',
                             textAlign: TextAlign.center,
                             style: R.styles.body(
                               size: 14,
@@ -241,7 +240,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                           child: Text(
-                            'Số điện thoại',
+                            'Email + OTP',
                             textAlign: TextAlign.center,
                             style: R.styles.body(
                               size: 14,
@@ -257,33 +256,24 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
                 const SizedBox(height: AppDimensions.paddingLarge),
-                // Email/Phone input
+                // Email input (always show)
                 CustomInputField(
-                  label: _usePhoneLogin ? 'Số điện thoại' : 'Email',
-                  hintText: _usePhoneLogin
-                      ? 'Nhập số điện thoại của bạn'
-                      : 'Nhập email của bạn',
+                  label: 'Email',
+                  hintText: 'Nhập email của bạn',
                   controller: _identifierController,
-                  keyboardType: _usePhoneLogin
-                      ? TextInputType.phone
-                      : TextInputType.emailAddress,
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return _usePhoneLogin
-                          ? 'Vui lòng nhập số điện thoại'
-                          : 'Vui lòng nhập email';
+                      return 'Vui lòng nhập email';
                     }
-                    if (!_usePhoneLogin && !value.contains('@')) {
+                    if (!value.contains('@')) {
                       return 'Email không hợp lệ';
-                    }
-                    if (_usePhoneLogin && value.length < 10) {
-                      return 'Số điện thoại không hợp lệ';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: AppDimensions.paddingLarge),
-                // Password input (only show for email login)
+                // Password input (only show for password login)
                 if (!_usePhoneLogin) ...[
                   CustomInputField(
                     label: 'Mật khẩu',

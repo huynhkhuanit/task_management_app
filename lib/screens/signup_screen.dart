@@ -60,16 +60,16 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
     try {
       if (_usePhoneSignUp) {
-        // Đăng ký bằng số điện thoại - gửi OTP
-        await _authService.signUpWithPhone(
-          phone: _phoneController.text.trim(),
+        // Đăng ký bằng email với OTP
+        await _authService.signUpWithEmailOTP(
+          email: _emailController.text.trim(),
           fullName: _nameController.text.trim(),
         );
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Đã gửi mã OTP đến số điện thoại của bạn'),
+              content: Text('Đã gửi mã OTP đến email của bạn'),
               backgroundColor: AppColors.success,
             ),
           );
@@ -80,7 +80,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
               NavigationHelper.pushReplacementSlideTransition(
                 context,
                 OTPVerificationScreen(
-                  phone: _phoneController.text.trim(),
+                  email: _emailController.text.trim(),
                   isSignUp: true,
                   fullName: _nameController.text.trim(),
                 ),
@@ -89,7 +89,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           });
         }
       } else {
-        // Đăng ký bằng email
+        // Đăng ký bằng email với password
         await _authService.signUp(
           email: _emailController.text.trim(),
           password: _passwordController.text,
@@ -320,7 +320,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                           child: Text(
-                            'Email',
+                            'Email + Mật khẩu',
                             textAlign: TextAlign.center,
                             style: R.styles.body(
                               size: 14,
@@ -354,7 +354,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                             ),
                           ),
                           child: Text(
-                            'Số điện thoại',
+                            'Email + OTP',
                             textAlign: TextAlign.center,
                             style: R.styles.body(
                               size: 14,
@@ -370,45 +370,38 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   ],
                 ),
                 const SizedBox(height: AppDimensions.paddingLarge),
-                // Email input (only show if not using phone signup)
-                if (!_usePhoneSignUp)
-                  CustomInputField(
-                    label: 'Email',
-                    hintText: 'example@email.com',
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Vui lòng nhập email';
-                      }
-                      if (!value.contains('@')) {
-                        return 'Email không hợp lệ';
-                      }
-                      return null;
-                    },
-                  ),
-                if (!_usePhoneSignUp)
-                  const SizedBox(height: AppDimensions.paddingLarge),
-                // Phone input
+                // Email input (always show)
                 CustomInputField(
-                  label: 'Số điện thoại',
-                  hintText: '0912345678',
-                  controller: _phoneController,
-                  keyboardType: TextInputType.phone,
+                  label: 'Email',
+                  hintText: 'example@email.com',
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
                   validator: (value) {
-                    if (_usePhoneSignUp) {
-                      if (value == null || value.isEmpty) {
-                        return 'Vui lòng nhập số điện thoại';
-                      }
-                      if (value.length < 10) {
-                        return 'Số điện thoại không hợp lệ';
-                      }
+                    if (value == null || value.isEmpty) {
+                      return 'Vui lòng nhập email';
+                    }
+                    if (!value.contains('@')) {
+                      return 'Email không hợp lệ';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: AppDimensions.paddingLarge),
-                // Password input (only show if using email signup)
+                // Phone input (optional)
+                CustomInputField(
+                  label: 'Số điện thoại (tùy chọn)',
+                  hintText: '0912345678',
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty && value.length < 10) {
+                      return 'Số điện thoại không hợp lệ';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: AppDimensions.paddingLarge),
+                // Password input (only show if using password signup)
                 if (!_usePhoneSignUp) ...[
                   CustomInputField(
                     label: 'Mật khẩu',

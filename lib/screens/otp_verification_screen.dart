@@ -8,13 +8,13 @@ import '../utils/navigation_helper.dart';
 import 'home_screen.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
-  final String phone;
+  final String email;
   final bool isSignUp;
   final String? fullName;
 
   const OTPVerificationScreen({
     Key? key,
-    required this.phone,
+    required this.email,
     this.isSignUp = false,
     this.fullName,
   }) : super(key: key);
@@ -25,12 +25,13 @@ class OTPVerificationScreen extends StatefulWidget {
 
 class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   final _authService = AuthService();
+  // Supabase gửi mã OTP 8 số, cần nhập đủ 8 số để verify
   final List<TextEditingController> _controllers = List.generate(
-    6,
+    8,
     (index) => TextEditingController(),
   );
   final List<FocusNode> _focusNodes = List.generate(
-    6,
+    8,
     (index) => FocusNode(),
   );
   bool _isLoading = false;
@@ -69,7 +70,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   void _onChanged(int index, String value) {
     if (value.length == 1) {
       _controllers[index].text = value;
-      if (index < 5) {
+      if (index < 7) {
         _focusNodes[index + 1].requestFocus();
       } else {
         _focusNodes[index].unfocus();
@@ -82,10 +83,10 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   Future<void> _verifyOTP() async {
     final otp = _controllers.map((c) => c.text).join();
-    if (otp.length != 6) {
+    if (otp.length != 8) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Vui lòng nhập đầy đủ 6 số'),
+          content: Text('Vui lòng nhập đầy đủ 8 số'),
           backgroundColor: AppColors.error,
         ),
       );
@@ -98,7 +99,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
     try {
       await _authService.verifyOTP(
-        phone: widget.phone,
+        email: widget.email,
         token: otp,
       );
 
@@ -157,12 +158,12 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
     try {
       if (widget.isSignUp && widget.fullName != null) {
-        await _authService.signUpWithPhone(
-          phone: widget.phone,
+        await _authService.signUpWithEmailOTP(
+          email: widget.email,
           fullName: widget.fullName!,
         );
       } else {
-        await _authService.sendLoginOTP(widget.phone);
+        await _authService.sendLoginOTP(widget.email);
       }
 
       if (mounted) {
@@ -212,7 +213,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               const SizedBox(height: AppDimensions.paddingXLarge),
               // Title
               Text(
-                'Xác nhận số điện thoại',
+                'Xác nhận email',
                 textAlign: TextAlign.center,
                 style: R.styles.heading1(
                   color: AppColors.black,
@@ -222,7 +223,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               const SizedBox(height: AppDimensions.paddingMedium),
               // Subtitle
               Text(
-                'Nhập mã 6 số đã được gửi đến\n${widget.phone}',
+                'Nhập mã 8 số đã được gửi đến\n${widget.email}',
                 textAlign: TextAlign.center,
                 style: R.styles.body(
                   size: 16,
@@ -231,51 +232,64 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
               ),
               const SizedBox(height: AppDimensions.paddingXLarge * 2),
               // OTP Input Fields
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: 50,
-                    height: 60,
-                    child: TextField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 1,
-                      style: R.styles.heading2(
-                        color: AppColors.black,
-                        weight: FontWeight.w700,
-                      ),
-                      decoration: InputDecoration(
-                        counterText: '',
-                        filled: true,
-                        fillColor: AppColors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.borderRadiusMedium,
+              // Wrap Row in Flexible/Expanded to prevent overflow
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  // Calculate available width and spacing
+                  final availableWidth = constraints.maxWidth;
+                  final spacing = 8.0; // Spacing between fields
+                  final fieldWidth = (availableWidth - (spacing * 7)) /
+                      8; // 8 fields, 7 spaces
+                  final fieldSize =
+                      fieldWidth < 40 ? 40.0 : fieldWidth; // Minimum 40px
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(8, (index) {
+                      return SizedBox(
+                        width: fieldSize,
+                        height: 60,
+                        child: TextField(
+                          controller: _controllers[index],
+                          focusNode: _focusNodes[index],
+                          textAlign: TextAlign.center,
+                          keyboardType: TextInputType.number,
+                          maxLength: 1,
+                          style: R.styles.heading2(
+                            color: AppColors.black,
+                            weight: FontWeight.w700,
                           ),
-                          borderSide: const BorderSide(
-                            color: AppColors.greyLight,
+                          decoration: InputDecoration(
+                            counterText: '',
+                            filled: true,
+                            fillColor: AppColors.white,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.borderRadiusMedium,
+                              ),
+                              borderSide: const BorderSide(
+                                color: AppColors.greyLight,
+                              ),
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.borderRadiusMedium,
+                              ),
+                              borderSide: const BorderSide(
+                                color: AppColors.primary,
+                                width: 2,
+                              ),
+                            ),
                           ),
+                          onChanged: (value) => _onChanged(index, value),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly,
+                          ],
                         ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(
-                            AppDimensions.borderRadiusMedium,
-                          ),
-                          borderSide: const BorderSide(
-                            color: AppColors.primary,
-                            width: 2,
-                          ),
-                        ),
-                      ),
-                      onChanged: (value) => _onChanged(index, value),
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
-                    ),
+                      );
+                    }),
                   );
-                }),
+                },
               ),
               const SizedBox(height: AppDimensions.paddingXLarge * 2),
               // Verify Button
@@ -299,14 +313,11 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                   GestureDetector(
                     onTap: _countdown > 0 ? null : _resendOTP,
                     child: Text(
-                      _countdown > 0
-                          ? 'Gửi lại sau ($_countdown)'
-                          : 'Gửi lại',
+                      _countdown > 0 ? 'Gửi lại sau ($_countdown)' : 'Gửi lại',
                       style: R.styles.body(
                         size: 14,
-                        color: _countdown > 0
-                            ? AppColors.grey
-                            : AppColors.primary,
+                        color:
+                            _countdown > 0 ? AppColors.grey : AppColors.primary,
                         weight: FontWeight.w600,
                       ),
                     ),
@@ -321,4 +332,3 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     );
   }
 }
-
