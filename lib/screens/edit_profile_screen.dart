@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
+import '../services/profile_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   final String initialName;
   final String initialEmail;
+  final String initialPhone;
 
   const EditProfileScreen({
     Key? key,
-    this.initialName = 'Lê Huỳnh Đức',
-    this.initialEmail = 'lehuynhduc@email.com',
+    this.initialName = '',
+    this.initialEmail = '',
+    this.initialPhone = '',
   }) : super(key: key);
 
   @override
@@ -20,31 +23,68 @@ class EditProfileScreen extends StatefulWidget {
 class _EditProfileScreenState extends State<EditProfileScreen> {
   late TextEditingController _nameController;
   late TextEditingController _emailController;
+  late TextEditingController _phoneController;
   final _formKey = GlobalKey<FormState>();
+  final _profileService = ProfileService();
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.initialName);
     _emailController = TextEditingController(text: widget.initialEmail);
+    _phoneController = TextEditingController(text: widget.initialPhone);
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     super.dispose();
   }
 
-  void _handleSave() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement save logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã lưu thay đổi'),
-        ),
+  Future<void> _handleSave() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _profileService.updateProfile(
+        fullName: _nameController.text.trim(),
+        phoneNumber: _phoneController.text.trim().isNotEmpty
+            ? _phoneController.text.trim()
+            : null,
       );
-      Navigator.of(context).pop();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã lưu thay đổi'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.of(context).pop(true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,6 +114,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
     if (!value.contains('@')) {
       return 'Email không hợp lệ';
+    }
+    return null;
+  }
+
+  String? _validatePhone(String? value) {
+    if (value != null && value.isNotEmpty && value.length < 10) {
+      return 'Số điện thoại không hợp lệ';
     }
     return null;
   }
@@ -171,13 +218,25 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
                       const SizedBox(height: AppDimensions.paddingLarge),
 
-                      // Email Field
+                      // Email Field (read-only, cannot change)
                       CustomInputField(
                         label: 'Email',
                         controller: _emailController,
-                        validator: _validateEmail,
+                        enabled: false,
                         keyboardType: TextInputType.emailAddress,
                         hintText: 'nguyenvana@email.com',
+                        fillColor: AppColors.greyLight,
+                      ),
+
+                      const SizedBox(height: AppDimensions.paddingLarge),
+
+                      // Phone Field
+                      CustomInputField(
+                        label: 'Số điện thoại',
+                        controller: _phoneController,
+                        validator: _validatePhone,
+                        keyboardType: TextInputType.phone,
+                        hintText: '0912345678',
                         fillColor: AppColors.greyLight,
                       ),
 
@@ -235,7 +294,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     const SizedBox(width: AppDimensions.paddingSmall),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _handleSave,
+                        onPressed: _isLoading ? null : _handleSave,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.white,
@@ -251,7 +310,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           elevation: 0,
                         ),
                         child: Text(
-                          'Lưu Thay Đổi',
+                          _isLoading ? 'Đang lưu...' : 'Lưu Thay Đổi',
                           style: R.styles.body(
                             size: 16,
                             weight: FontWeight.w600,

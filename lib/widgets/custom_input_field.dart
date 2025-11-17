@@ -10,6 +10,7 @@ class CustomInputField extends StatefulWidget {
   final String? Function(String?)? validator;
   final TextInputType? keyboardType;
   final Color? fillColor;
+  final bool enabled;
 
   const CustomInputField({
     Key? key,
@@ -20,6 +21,7 @@ class CustomInputField extends StatefulWidget {
     this.validator,
     this.keyboardType,
     this.fillColor,
+    this.enabled = true,
   }) : super(key: key);
 
   @override
@@ -48,6 +50,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
           validator: widget.validator,
           keyboardType: widget.keyboardType,
           obscureText: widget.isPassword ? _obscureText : false,
+          enabled: widget.enabled,
           cursorColor: AppColors.primary,
           decoration: InputDecoration(
             hintText: widget.hintText,

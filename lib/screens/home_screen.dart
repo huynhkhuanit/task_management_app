@@ -6,6 +6,8 @@ import '../widgets/calendar_widget.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
+import '../services/profile_service.dart';
+import '../services/supabase_service.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
@@ -22,6 +24,35 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
+  final _profileService = ProfileService();
+  String? _userName;
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    try {
+      final fullName = await _profileService.getFullName();
+      final avatarUrl = await _profileService.getAvatarUrl();
+      setState(() {
+        _userName = fullName;
+        _avatarUrl = avatarUrl;
+      });
+    } catch (e) {
+      // Use first name from email if available
+      final user = SupabaseService.currentUser;
+      if (user?.email != null) {
+        final emailName = user!.email!.split('@')[0];
+        setState(() {
+          _userName = emailName;
+        });
+      }
+    }
+  }
 
   // Sample data
   final List<Task> _todayTasks = [
@@ -59,6 +90,15 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  String _getDisplayName() {
+    if (_userName != null && _userName!.isNotEmpty) {
+      // Get first name if full name has multiple words
+      final parts = _userName!.split(' ');
+      return parts.isNotEmpty ? parts.last : _userName!;
+    }
+    return 'Bạn';
+  }
+
   int _getUnreadNotificationCount() {
     // TODO: Replace with actual notification count from service/state
     // For now, return a sample count (4 unread notifications)
@@ -81,12 +121,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     color: const Color(0xFFE8D5C4),
                     shape: BoxShape.circle,
+                    image: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                        ? DecorationImage(
+                            image: NetworkImage(_avatarUrl!),
+                            fit: BoxFit.cover,
+                          )
+                        : null,
                   ),
-                  child: const Icon(
-                    Icons.person,
-                    color: AppColors.black,
-                    size: 30,
-                  ),
+                  child: _avatarUrl == null || _avatarUrl!.isEmpty
+                      ? const Icon(
+                          Icons.person,
+                          color: AppColors.black,
+                          size: 30,
+                        )
+                      : null,
                 ),
                 const SizedBox(width: AppDimensions.paddingMedium),
                 // Greeting
@@ -95,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${_getGreeting()}, An!',
+                        '${_getGreeting()}, ${_getDisplayName()}!',
                         style: R.styles.heading2(
                           color: AppColors.black,
                           weight: FontWeight.w700,

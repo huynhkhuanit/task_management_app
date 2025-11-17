@@ -12,13 +12,14 @@ class AuthService {
   /// Lazy getter để tránh khởi tạo client trước khi Supabase được initialize
   SupabaseClient get _client => SupabaseService.client;
 
-  /// Đăng ký tài khoản mới
+  /// Đăng ký tài khoản mới với email
   ///
   /// REST API: POST /auth/v1/signup
   ///
   /// [email] - Email người dùng
   /// [password] - Mật khẩu (tối thiểu 6 ký tự)
   /// [fullName] - Họ và tên
+  /// [phoneNumber] - Số điện thoại (optional)
   ///
   /// Returns: AuthResponse chứa User và Session nếu thành công
   /// Throws: AuthException với message chi tiết nếu có lỗi
@@ -26,6 +27,7 @@ class AuthService {
     required String email,
     required String password,
     required String fullName,
+    String? phoneNumber,
   }) async {
     try {
       // Validate input
@@ -41,12 +43,17 @@ class AuthService {
 
       // Call Supabase Auth API
       // Internally calls: POST {SUPABASE_URL}/auth/v1/signup
+      final Map<String, dynamic> userData = {
+        'full_name': fullName.trim(),
+      };
+      if (phoneNumber != null && phoneNumber.isNotEmpty) {
+        userData['phone_number'] = phoneNumber.trim();
+      }
+
       final response = await _client.auth.signUp(
         email: email.trim(),
         password: password,
-        data: {
-          'full_name': fullName.trim(),
-        },
+        data: userData,
       );
 
       if (response.user == null) {
@@ -59,6 +66,129 @@ class AuthService {
       throw _handleAuthError(e);
     } catch (e) {
       throw Exception('Lỗi đăng ký: ${e.toString()}');
+    }
+  }
+
+  /// Đăng ký với số điện thoại và gửi OTP
+  ///
+  /// REST API: POST /auth/v1/otp
+  ///
+  /// [phone] - Số điện thoại (format: +84xxxxxxxxx)
+  /// [fullName] - Họ và tên
+  ///
+  /// Returns: true nếu thành công
+  /// Throws: Exception nếu có lỗi
+  Future<bool> signUpWithPhone({
+    required String phone,
+    required String fullName,
+  }) async {
+    try {
+      // Validate phone number
+      if (phone.isEmpty) {
+        throw Exception('Vui lòng nhập số điện thoại');
+      }
+      if (fullName.isEmpty) {
+        throw Exception('Vui lòng nhập họ và tên');
+      }
+
+      // Format phone number (ensure it starts with +)
+      String formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith('+')) {
+        // Assume Vietnamese number, add +84
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '+84${formattedPhone.substring(1)}';
+        } else {
+          formattedPhone = '+84$formattedPhone';
+        }
+      }
+
+      // Send OTP to phone
+      await _client.auth.signInWithOtp(
+        phone: formattedPhone,
+        data: {
+          'full_name': fullName.trim(),
+        },
+      );
+
+      return true;
+    } on AuthException catch (e) {
+      throw _handleAuthError(e);
+    } catch (e) {
+      throw Exception('Lỗi gửi OTP: ${e.toString()}');
+    }
+  }
+
+  /// Xác nhận OTP và đăng ký/đăng nhập
+  ///
+  /// REST API: POST /auth/v1/verify
+  ///
+  /// [phone] - Số điện thoại
+  /// [token] - Mã OTP 6 số
+  ///
+  /// Returns: AuthResponse nếu thành công
+  /// Throws: Exception nếu có lỗi
+  Future<AuthResponse> verifyOTP({
+    required String phone,
+    required String token,
+  }) async {
+    try {
+      // Format phone number
+      String formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith('+')) {
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '+84${formattedPhone.substring(1)}';
+        } else {
+          formattedPhone = '+84$formattedPhone';
+        }
+      }
+
+      // Verify OTP
+      final response = await _client.auth.verifyOTP(
+        phone: formattedPhone,
+        token: token.trim(),
+        type: OtpType.sms,
+      );
+
+      if (response.session == null) {
+        throw Exception('Xác nhận OTP thất bại. Vui lòng thử lại.');
+      }
+
+      return response;
+    } on AuthException catch (e) {
+      throw _handleAuthError(e);
+    } catch (e) {
+      throw Exception('Lỗi xác nhận OTP: ${e.toString()}');
+    }
+  }
+
+  /// Gửi OTP để đăng nhập bằng số điện thoại
+  ///
+  /// REST API: POST /auth/v1/otp
+  ///
+  /// [phone] - Số điện thoại
+  ///
+  /// Returns: true nếu thành công
+  /// Throws: Exception nếu có lỗi
+  Future<bool> sendLoginOTP(String phone) async {
+    try {
+      // Format phone number
+      String formattedPhone = phone.trim();
+      if (!formattedPhone.startsWith('+')) {
+        if (formattedPhone.startsWith('0')) {
+          formattedPhone = '+84${formattedPhone.substring(1)}';
+        } else {
+          formattedPhone = '+84$formattedPhone';
+        }
+      }
+
+      // Send OTP
+      await _client.auth.signInWithOtp(phone: formattedPhone);
+
+      return true;
+    } on AuthException catch (e) {
+      throw _handleAuthError(e);
+    } catch (e) {
+      throw Exception('Lỗi gửi OTP: ${e.toString()}');
     }
   }
 
@@ -101,6 +231,36 @@ class AuthService {
       throw _handleAuthError(e);
     } catch (e) {
       throw Exception('Email hoặc mật khẩu không đúng');
+    }
+  }
+
+  /// Đăng nhập bằng số điện thoại hoặc email
+  /// Tự động phát hiện loại đăng nhập dựa trên input
+  ///
+  /// [identifier] - Email hoặc số điện thoại
+  /// [password] - Mật khẩu (chỉ dùng cho email)
+  ///
+  /// Returns: AuthResponse nếu thành công
+  /// Throws: Exception nếu có lỗi
+  Future<AuthResponse> signInWithIdentifier({
+    required String identifier,
+    String? password,
+  }) async {
+    // Check if identifier is email or phone
+    final isEmail = identifier.contains('@');
+
+    if (isEmail) {
+      // Sign in with email and password
+      if (password == null || password.isEmpty) {
+        throw Exception('Vui lòng nhập mật khẩu');
+      }
+      return await signIn(email: identifier, password: password);
+    } else {
+      // Sign in with phone - send OTP
+      await sendLoginOTP(identifier);
+      // Return a response indicating OTP was sent
+      // The actual sign-in will happen after OTP verification
+      throw Exception('OTP đã được gửi. Vui lòng nhập mã OTP để đăng nhập.');
     }
   }
 

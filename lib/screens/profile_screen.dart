@@ -4,6 +4,8 @@ import '../res/fonts/font_resources.dart';
 import '../widgets/custom_switch.dart';
 import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
+import '../services/profile_service.dart';
+import '../services/supabase_service.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'notifications_screen.dart';
@@ -17,8 +19,63 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _profileService = ProfileService();
   bool _isDarkMode = false;
   String _selectedLanguage = 'Tiếng Việt';
+  String? _fullName;
+  String? _email;
+  String? _phoneNumber;
+  String? _avatarUrl;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    try {
+      final profile = await _profileService.getProfile();
+      final user = SupabaseService.currentUser;
+      
+      setState(() {
+        _fullName = profile['full_name'] as String?;
+        _phoneNumber = profile['phone_number'] as String?;
+        _avatarUrl = profile['avatar_url'] as String?;
+        _email = user?.email;
+        _isDarkMode = profile['dark_mode'] as bool? ?? false;
+        final lang = profile['language'] as String? ?? 'vi';
+        _selectedLanguage = _getLanguageName(lang);
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      // Use default values if error
+      final user = SupabaseService.currentUser;
+      setState(() {
+        _email = user?.email;
+        _fullName = user?.userMetadata?['full_name'] as String?;
+      });
+    }
+  }
+
+  String _getLanguageName(String code) {
+    switch (code) {
+      case 'vi':
+        return 'Tiếng Việt';
+      case 'en':
+        return 'English';
+      case 'zh':
+        return '中文';
+      case 'ja':
+        return '日本語';
+      default:
+        return 'Tiếng Việt';
+    }
+  }
 
   int _getUnreadNotificationCount() {
     // TODO: Replace with actual notification count from service/state
@@ -28,6 +85,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: Color(0xFFF7F9FC),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Color(0xFFF7F9FC),
       body: SafeArea(
@@ -65,12 +131,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFE5D4), // Light orange
                             shape: BoxShape.circle,
+                            image: _avatarUrl != null && _avatarUrl!.isNotEmpty
+                                ? DecorationImage(
+                                    image: NetworkImage(_avatarUrl!),
+                                    fit: BoxFit.cover,
+                                  )
+                                : null,
                           ),
-                          child: const Icon(
-                            Icons.person,
-                            size: 60,
-                            color: AppColors.black,
-                          ),
+                          child: _avatarUrl == null || _avatarUrl!.isEmpty
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 60,
+                                  color: AppColors.black,
+                                )
+                              : null,
                         ),
                         Positioned(
                           bottom: 0,
@@ -142,14 +216,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildMenuItem(
                       icon: Icons.person_outline,
                       title: 'Chỉnh sửa thông tin',
-                      onTap: () {
-                        NavigationHelper.pushSlideTransition(
+                      onTap: () async {
+                        final result = await NavigationHelper.pushSlideTransition(
                           context,
-                          const EditProfileScreen(
-                            initialName: 'Lê Huỳnh Đức',
-                            initialEmail: 'lehuynhduc@email.com',
+                          EditProfileScreen(
+                            initialName: _fullName ?? '',
+                            initialEmail: _email ?? '',
+                            initialPhone: _phoneNumber ?? '',
                           ),
                         );
+                        if (result == true) {
+                          _loadProfile();
+                        }
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),

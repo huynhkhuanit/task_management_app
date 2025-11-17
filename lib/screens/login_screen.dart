@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import 'home_screen.dart';
+import 'otp_verification_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({Key? key}) : super(key: key);
@@ -18,14 +19,15 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
+  final _identifierController = TextEditingController();
   final _passwordController = TextEditingController();
   final _authService = AuthService();
   bool _isLoading = false;
+  bool _usePhoneLogin = false;
 
   @override
   void dispose() {
-    _emailController.dispose();
+    _identifierController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -40,18 +42,48 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      // Call Supabase Auth API để đăng nhập
-      await _authService.signIn(
-        email: _emailController.text.trim(),
-        password: _passwordController.text,
-      );
+      final identifier = _identifierController.text.trim();
+      final isEmail = identifier.contains('@');
 
-      if (mounted) {
-        // Đăng nhập thành công, điều hướng đến home screen
-        NavigationHelper.pushReplacementSlideTransition(
-          context,
-          const HomeScreen(),
+      if (isEmail) {
+        // Đăng nhập bằng email và password
+        await _authService.signIn(
+          email: identifier,
+          password: _passwordController.text,
         );
+
+        if (mounted) {
+          // Đăng nhập thành công, điều hướng đến home screen
+          NavigationHelper.pushReplacementSlideTransition(
+            context,
+            const HomeScreen(),
+          );
+        }
+      } else {
+        // Đăng nhập bằng số điện thoại - gửi OTP
+        await _authService.sendLoginOTP(identifier);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã gửi mã OTP đến số điện thoại của bạn'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+
+          // Navigate to OTP verification screen
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              NavigationHelper.pushReplacementSlideTransition(
+                context,
+                OTPVerificationScreen(
+                  phone: identifier,
+                  isSignUp: false,
+                ),
+              );
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -152,60 +184,144 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                 ),
                 const SizedBox(height: AppDimensions.paddingXLarge * 2),
-                // Email input
+                // Login method toggle
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _usePhoneLogin = false;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingSmall,
+                          ),
+                          decoration: BoxDecoration(
+                            color: !_usePhoneLogin
+                                ? AppColors.primary
+                                : AppColors.greyLight,
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusMedium,
+                            ),
+                          ),
+                          child: Text(
+                            'Email',
+                            textAlign: TextAlign.center,
+                            style: R.styles.body(
+                              size: 14,
+                              color: !_usePhoneLogin
+                                  ? AppColors.white
+                                  : AppColors.grey,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: AppDimensions.paddingSmall),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          setState(() {
+                            _usePhoneLogin = true;
+                          });
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppDimensions.paddingSmall,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _usePhoneLogin
+                                ? AppColors.primary
+                                : AppColors.greyLight,
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusMedium,
+                            ),
+                          ),
+                          child: Text(
+                            'Số điện thoại',
+                            textAlign: TextAlign.center,
+                            style: R.styles.body(
+                              size: 14,
+                              color: _usePhoneLogin
+                                  ? AppColors.white
+                                  : AppColors.grey,
+                              weight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppDimensions.paddingLarge),
+                // Email/Phone input
                 CustomInputField(
-                  label: 'Email',
-                  hintText: 'Nhập email của bạn',
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
+                  label: _usePhoneLogin ? 'Số điện thoại' : 'Email',
+                  hintText: _usePhoneLogin
+                      ? 'Nhập số điện thoại của bạn'
+                      : 'Nhập email của bạn',
+                  controller: _identifierController,
+                  keyboardType: _usePhoneLogin
+                      ? TextInputType.phone
+                      : TextInputType.emailAddress,
                   validator: (value) {
                     if (value == null || value.isEmpty) {
-                      return 'Vui lòng nhập email';
+                      return _usePhoneLogin
+                          ? 'Vui lòng nhập số điện thoại'
+                          : 'Vui lòng nhập email';
                     }
-                    if (!value.contains('@')) {
+                    if (!_usePhoneLogin && !value.contains('@')) {
                       return 'Email không hợp lệ';
+                    }
+                    if (_usePhoneLogin && value.length < 10) {
+                      return 'Số điện thoại không hợp lệ';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: AppDimensions.paddingLarge),
-                // Password input
-                CustomInputField(
-                  label: 'Mật khẩu',
-                  hintText: 'Nhập mật khẩu của bạn',
-                  controller: _passwordController,
-                  isPassword: true,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Vui lòng nhập mật khẩu';
-                    }
-                    if (value.length < 6) {
-                      return 'Mật khẩu phải có ít nhất 6 ký tự';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: AppDimensions.paddingSmall),
-                // Forgot password link
-                Align(
-                  alignment: Alignment.centerRight,
-                  child: TextButton(
-                    onPressed: _handleForgotPassword,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: Text(
-                      'Quên mật khẩu?',
-                      style: R.styles.body(
-                        size: 14,
-                        weight: FontWeight.w500,
-                        color: AppColors.primary,
+                // Password input (only show for email login)
+                if (!_usePhoneLogin) ...[
+                  CustomInputField(
+                    label: 'Mật khẩu',
+                    hintText: 'Nhập mật khẩu của bạn',
+                    controller: _passwordController,
+                    isPassword: true,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Vui lòng nhập mật khẩu';
+                      }
+                      if (value.length < 6) {
+                        return 'Mật khẩu phải có ít nhất 6 ký tự';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: AppDimensions.paddingSmall),
+                  // Forgot password link
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: _handleForgotPassword,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: Text(
+                        'Quên mật khẩu?',
+                        style: R.styles.body(
+                          size: 14,
+                          weight: FontWeight.w500,
+                          color: AppColors.primary,
+                        ),
                       ),
                     ),
                   ),
-                ),
+                ],
                 const SizedBox(height: AppDimensions.paddingXLarge),
                 // Sign in button
                 PrimaryButton(

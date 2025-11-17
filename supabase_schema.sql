@@ -12,12 +12,16 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE public.profiles (
     id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
     full_name TEXT,
+    phone_number TEXT,
     avatar_url TEXT,
     language TEXT DEFAULT 'vi' CHECK (language IN ('vi', 'en', 'zh', 'ja')),
     dark_mode BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
+-- Add index for phone_number for faster lookups
+CREATE INDEX IF NOT EXISTS idx_profiles_phone_number ON public.profiles(phone_number);
 
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -39,8 +43,12 @@ CREATE POLICY "Users can insert own profile"
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-    INSERT INTO public.profiles (id, full_name)
-    VALUES (NEW.id, NEW.raw_user_meta_data->>'full_name');
+    INSERT INTO public.profiles (id, full_name, phone_number)
+    VALUES (
+        NEW.id, 
+        NEW.raw_user_meta_data->>'full_name',
+        NEW.raw_user_meta_data->>'phone_number'
+    );
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
