@@ -265,10 +265,22 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   }
 
   void _handleSave() {
+    if (_titleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập tiêu đề công việc'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
     // TODO: Implement save logic
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true); // Return true to indicate success
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đã lưu công việc')),
+      const SnackBar(
+        content: Text('Đã lưu công việc'),
+        backgroundColor: AppColors.success,
+      ),
     );
   }
 

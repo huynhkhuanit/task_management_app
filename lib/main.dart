@@ -1,9 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'constants/app_constants.dart';
 import 'res/fonts/sf_pro_typography_theme.dart';
 import 'screens/splash_screen.dart';
+import 'services/supabase_service.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Load environment variables from .env file
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint('Warning: Could not load .env file: $e');
+    debugPrint('Make sure .env file exists in the root directory');
+  }
+
+  // Initialize Supabase (will read from .env or use provided values)
+  try {
+    await SupabaseService.initialize();
+  } catch (e) {
+    debugPrint('Error initializing Supabase: $e');
+    // App will still run but Supabase features won't work
+  }
+
   runApp(const MyApp());
 }
 

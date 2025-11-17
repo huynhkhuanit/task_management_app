@@ -6,6 +6,8 @@ import '../widgets/bottom_navigation_bar.dart';
 import '../utils/navigation_helper.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
+import 'profile_screen.dart';
+import 'categories_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   final bool showBottomNavigationBar;
@@ -267,6 +269,89 @@ class _TasksScreenState extends State<TasksScreen> {
     super.dispose();
   }
 
+  void _showViewOptionsMenu() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.borderRadiusXLarge),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Tùy chọn xem',
+                style: R.styles.heading2(
+                  color: AppColors.black,
+                  weight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppDimensions.paddingLarge),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.view_list, color: AppColors.primary),
+                title: Text(
+                  'Xem danh sách',
+                  style: R.styles.body(
+                    size: 16,
+                    color: AppColors.black,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  // Already in list view
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.grid_view, color: AppColors.primary),
+                title: Text(
+                  'Xem lưới',
+                  style: R.styles.body(
+                    size: 16,
+                    color: AppColors.black,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Chế độ xem lưới sẽ được thêm sau'),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.category_outlined, color: AppColors.primary),
+                title: Text(
+                  'Quản lý danh mục',
+                  style: R.styles.body(
+                    size: 16,
+                    color: AppColors.black,
+                  ),
+                ),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  NavigationHelper.pushSlideTransition(
+                    context,
+                    const CategoriesScreen(),
+                  );
+                },
+              ),
+              const SizedBox(height: AppDimensions.paddingMedium),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -295,7 +380,7 @@ class _TasksScreenState extends State<TasksScreen> {
                         size: AppDimensions.iconMedium,
                       ),
                       onPressed: () {
-                        // TODO: Handle menu
+                        _showViewOptionsMenu();
                       },
                     ),
                     // Title
@@ -316,7 +401,17 @@ class _TasksScreenState extends State<TasksScreen> {
                         size: AppDimensions.iconMedium,
                       ),
                       onPressed: () {
-                        // TODO: Navigate to profile
+                        // Navigate to profile screen (index 3 in HomeScreen)
+                        // Since TasksScreen is embedded in HomeScreen, we need to notify parent
+                        // For now, we'll navigate directly if not embedded
+                        if (widget.showBottomNavigationBar) {
+                          // If showing bottom nav, switch to profile tab
+                          // This would require a callback to parent, but for now we'll navigate
+                          NavigationHelper.pushSlideTransition(
+                            context,
+                            const ProfileScreen(),
+                          );
+                        }
                       },
                     ),
                   ],

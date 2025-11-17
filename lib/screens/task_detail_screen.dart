@@ -341,13 +341,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () {
-                        NavigationHelper.pushSlideTransition(
+                      onPressed: () async {
+                        final result = await NavigationHelper.pushSlideTransition(
                           context,
                           EditTaskScreen(
                             task: widget.task,
                           ),
                         );
+                        // If task was updated, refresh the screen
+                        if (result == true && mounted) {
+                          // TODO: Refresh task data
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Đã cập nhật công việc'),
+                              backgroundColor: AppColors.success,
+                            ),
+                          );
+                        }
                       },
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(
@@ -378,7 +388,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Expanded(
                     child: ElevatedButton(
                       onPressed: () {
-                        // TODO: Handle delete
+                        _showDeleteConfirmation();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.error,
@@ -409,7 +419,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     flex: 2,
                     child: ElevatedButton(
                       onPressed: () {
-                        // TODO: Handle complete
+                        _handleCompleteTask();
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
@@ -637,6 +647,78 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ],
       ),
     );
+  }
+
+  void _showDeleteConfirmation() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Xóa công việc',
+            style: R.styles.heading3(
+              color: AppColors.black,
+            ),
+          ),
+          content: Text(
+            'Bạn có chắc chắn muốn xóa công việc "${widget.task.title}"? Hành động này không thể hoàn tác.',
+            style: R.styles.body(
+              color: AppColors.black,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text(
+                'Hủy',
+                style: R.styles.body(
+                  color: AppColors.grey,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _performDelete();
+              },
+              child: Text(
+                'Xóa',
+                style: R.styles.body(
+                  color: AppColors.error,
+                  weight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _performDelete() {
+    // TODO: Implement delete task logic (remove from database/state)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã xóa công việc: ${widget.task.title}'),
+      ),
+    );
+    // Navigate back after deletion
+    Navigator.of(context).pop(true); // Return true to indicate deletion
+  }
+
+  void _handleCompleteTask() {
+    // TODO: Implement complete task logic (update task status)
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Đã hoàn thành công việc: ${widget.task.title}'),
+        backgroundColor: AppColors.success,
+      ),
+    );
+    // Navigate back after completion
+    Navigator.of(context).pop(true); // Return true to indicate completion
   }
 }
 

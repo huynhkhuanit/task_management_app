@@ -4,6 +4,8 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
+import '../utils/navigation_helper.dart';
+import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({Key? key}) : super(key: key);
@@ -44,20 +46,124 @@ class _SignUpScreenState extends State<SignUpScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đăng ký thành công!')),
       );
+      // Navigate to login screen after successful signup
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (mounted) {
+          NavigationHelper.pushReplacementSlideTransition(
+            context,
+            const LoginScreen(),
+          );
+        }
+      });
     }
   }
 
   void _handleTermsOfService() {
-    // TODO: Navigate to terms of service
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Điều khoản Dịch vụ...')),
-    );
+    _showTermsDialog();
   }
 
   void _handlePrivacyPolicy() {
-    // TODO: Navigate to privacy policy
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Chính sách Bảo mật...')),
+    _showPrivacyDialog();
+  }
+
+  void _showTermsDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Điều khoản Dịch vụ',
+            style: R.styles.heading2(
+              color: AppColors.black,
+              weight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'Điều khoản Dịch vụ\n\n'
+              '1. Chấp nhận điều khoản\n'
+              'Bằng việc sử dụng ứng dụng này, bạn đồng ý với các điều khoản và điều kiện sau đây.\n\n'
+              '2. Sử dụng dịch vụ\n'
+              'Bạn được phép sử dụng ứng dụng để quản lý công việc cá nhân của mình.\n\n'
+              '3. Bảo mật thông tin\n'
+              'Chúng tôi cam kết bảo vệ thông tin cá nhân của bạn theo các tiêu chuẩn bảo mật cao nhất.\n\n'
+              '4. Quyền và trách nhiệm\n'
+              'Bạn có trách nhiệm bảo mật thông tin đăng nhập và không chia sẻ với người khác.\n\n'
+              '5. Thay đổi điều khoản\n'
+              'Chúng tôi có quyền thay đổi các điều khoản này và sẽ thông báo cho bạn khi có thay đổi.',
+              style: R.styles.body(
+                size: 14,
+                color: AppColors.black,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Đóng',
+                style: R.styles.body(
+                  size: 16,
+                  weight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showPrivacyDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(
+            'Chính sách Bảo mật',
+            style: R.styles.heading2(
+              color: AppColors.black,
+              weight: FontWeight.w700,
+            ),
+          ),
+          content: SingleChildScrollView(
+            child: Text(
+              'Chính sách Bảo mật\n\n'
+              '1. Thu thập thông tin\n'
+              'Chúng tôi chỉ thu thập thông tin cần thiết để cung cấp dịch vụ tốt nhất cho bạn.\n\n'
+              '2. Sử dụng thông tin\n'
+              'Thông tin của bạn được sử dụng để:\n'
+              '- Cung cấp và cải thiện dịch vụ\n'
+              '- Gửi thông báo quan trọng\n'
+              '- Bảo mật tài khoản của bạn\n\n'
+              '3. Bảo vệ thông tin\n'
+              'Chúng tôi sử dụng các biện pháp bảo mật tiên tiến để bảo vệ thông tin của bạn.\n\n'
+              '4. Chia sẻ thông tin\n'
+              'Chúng tôi không bán hoặc chia sẻ thông tin cá nhân của bạn với bên thứ ba.\n\n'
+              '5. Quyền của bạn\n'
+              'Bạn có quyền truy cập, chỉnh sửa hoặc xóa thông tin cá nhân của mình bất cứ lúc nào.',
+              style: R.styles.body(
+                size: 14,
+                color: AppColors.black,
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(
+                'Đóng',
+                style: R.styles.body(
+                  size: 16,
+                  weight: FontWeight.w600,
+                  color: AppColors.primary,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 

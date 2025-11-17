@@ -7,6 +7,7 @@ import '../utils/navigation_helper.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'notifications_screen.dart';
+import 'login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({Key? key}) : super(key: key);
@@ -17,6 +18,7 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isDarkMode = false;
+  String _selectedLanguage = 'Tiếng Việt';
 
   int _getUnreadNotificationCount() {
     // TODO: Replace with actual notification count from service/state
@@ -197,9 +199,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildMenuItemWithValue(
                       icon: Icons.language_outlined,
                       title: 'Ngôn ngữ',
-                      value: 'Tiếng Việt',
+                      value: _selectedLanguage,
                       onTap: () {
-                        // TODO: Show language selection
+                        _showLanguageSelection();
                       },
                     ),
                   ],
@@ -545,7 +547,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
-                // TODO: Implement logout logic
+                _performLogout();
               },
               child: Text(
                 'Đăng xuất',
@@ -556,6 +558,103 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  void _performLogout() {
+    // TODO: Clear user session, tokens, etc.
+    // Navigate to login screen and clear navigation stack
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (context) => const LoginScreen(),
+      ),
+      (route) => false,
+    );
+  }
+
+  void _showLanguageSelection() {
+    final List<String> languages = ['Tiếng Việt', 'English', '中文', '日本語'];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.borderRadiusXLarge),
+        ),
+      ),
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Chọn ngôn ngữ',
+                    style: R.styles.heading2(
+                      color: AppColors.black,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: AppDimensions.paddingLarge),
+                  ...languages.map((language) {
+                    final isSelected = language == _selectedLanguage;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Radio<String>(
+                        value: language,
+                        groupValue: _selectedLanguage,
+                        onChanged: (value) {
+                          setModalState(() {
+                            _selectedLanguage = value!;
+                          });
+                          setState(() {
+                            _selectedLanguage = value!;
+                          });
+                          Navigator.of(context).pop();
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Đã chọn: $language'),
+                            ),
+                          );
+                          // TODO: Implement language change logic
+                        },
+                        activeColor: AppColors.primary,
+                      ),
+                      title: Text(
+                        language,
+                        style: R.styles.body(
+                          size: 16,
+                          color: AppColors.black,
+                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                      onTap: () {
+                        setModalState(() {
+                          _selectedLanguage = language;
+                        });
+                        setState(() {
+                          _selectedLanguage = language;
+                        });
+                        Navigator.of(context).pop();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Đã chọn: $language'),
+                          ),
+                        );
+                        // TODO: Implement language change logic
+                      },
+                    );
+                  }),
+                  const SizedBox(height: AppDimensions.paddingMedium),
+                ],
+              ),
+            );
+          },
         );
       },
     );

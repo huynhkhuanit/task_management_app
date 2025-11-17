@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/notification_model.dart';
+import '../models/task_model.dart';
+import '../utils/navigation_helper.dart';
+import 'task_detail_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({Key? key}) : super(key: key);
@@ -63,11 +66,62 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   void _handleNotificationTap(NotificationItem notification) {
-    // TODO: Navigate to task detail or handle notification action
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã mở: ${notification.title}'),
-      ),
+    // Mark notification as read
+    setState(() {
+      // In a real app, you would update the notification's isRead status
+      // For now, we'll just navigate
+    });
+
+    // Create a sample task from notification for navigation
+    // In a real app, you would fetch the actual task by taskId
+    final task = _createTaskFromNotification(notification);
+    
+    // Navigate to task detail screen
+    NavigationHelper.pushSlideTransition(
+      context,
+      TaskDetailScreen(task: task),
+    );
+  }
+
+  Task _createTaskFromNotification(NotificationItem notification) {
+    // Extract task title from notification title
+    String taskTitle = notification.title;
+    if (taskTitle.contains(': ')) {
+      taskTitle = taskTitle.split(': ')[1];
+    }
+
+    // Determine task status and priority based on notification type
+    TaskStatus status = TaskStatus.pending;
+    TaskPriority priority = TaskPriority.medium;
+    
+    switch (notification.type) {
+      case NotificationType.overdue:
+        status = TaskStatus.overdue;
+        priority = TaskPriority.urgent;
+        break;
+      case NotificationType.upcoming:
+        status = TaskStatus.pending;
+        priority = TaskPriority.high;
+        break;
+      case NotificationType.reminder:
+        status = TaskStatus.pending;
+        priority = TaskPriority.medium;
+        break;
+      case NotificationType.newTask:
+        status = TaskStatus.pending;
+        priority = TaskPriority.medium;
+        break;
+    }
+
+    return Task(
+      id: notification.id,
+      title: taskTitle,
+      project: 'Dự án',
+      time: notification.timestamp,
+      status: status,
+      dueDate: notification.timestamp.add(const Duration(days: 1)),
+      priority: priority,
+      tags: [],
     );
   }
 

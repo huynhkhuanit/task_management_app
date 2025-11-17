@@ -245,7 +245,13 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     }
 
     // TODO: Save task to database/state management
-    Navigator.of(context).pop();
+    Navigator.of(context).pop(true); // Return true to indicate success
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã tạo công việc mới'),
+        backgroundColor: AppColors.success,
+      ),
+    );
   }
 
   Widget _buildTextField({
