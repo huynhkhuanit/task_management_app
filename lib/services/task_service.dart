@@ -4,7 +4,8 @@ import 'supabase_service.dart';
 
 /// Task Service - Xử lý CRUD operations cho tasks
 class TaskService {
-  final SupabaseClient _client = SupabaseService.client;
+  /// Lazy getter để tránh khởi tạo client trước khi Supabase được initialize
+  SupabaseClient get _client => SupabaseService.client;
 
   /// Lấy tất cả tasks của user hiện tại
   ///

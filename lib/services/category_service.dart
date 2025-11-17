@@ -5,7 +5,8 @@ import 'supabase_service.dart';
 
 /// Category Service - Xử lý CRUD operations cho categories
 class CategoryService {
-  final SupabaseClient _client = SupabaseService.client;
+  /// Lazy getter để tránh khởi tạo client trước khi Supabase được initialize
+  SupabaseClient get _client => SupabaseService.client;
   
   /// Lấy tất cả categories của user hiện tại
   Future<List<Category>> getCategories() async {

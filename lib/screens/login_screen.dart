@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
 import '../utils/navigation_helper.dart';
+import '../services/auth_service.dart';
 import 'signup_screen.dart';
 import 'forgot_password_screen.dart';
 import 'home_screen.dart';
@@ -19,6 +20,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -27,21 +30,77 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleSignIn() {
-    if (_formKey.currentState!.validate()) {
-      // Navigate to home screen
-      NavigationHelper.pushReplacementSlideTransition(
-        context,
-        const HomeScreen(),
+  Future<void> _handleSignIn() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call Supabase Auth API để đăng nhập
+      await _authService.signIn(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
       );
+
+      if (mounted) {
+        // Đăng nhập thành công, điều hướng đến home screen
+        NavigationHelper.pushReplacementSlideTransition(
+          context,
+          const HomeScreen(),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
-  void _handleGoogleSignIn() {
-    // TODO: Implement Google sign in logic
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Đăng nhập với Google...')),
-    );
+  Future<void> _handleGoogleSignIn() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await _authService.signInWithGoogle();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đang chuyển hướng đến Google...'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   void _handleForgotPassword() {
@@ -150,8 +209,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: AppDimensions.paddingXLarge),
                 // Sign in button
                 PrimaryButton(
-                  text: 'Đăng nhập',
-                  onPressed: _handleSignIn,
+                  text: _isLoading ? 'Đang đăng nhập...' : 'Đăng nhập',
+                  isLoading: _isLoading,
+                  onPressed: () {
+                    _handleSignIn();
+                  },
                 ),
                 const SizedBox(height: AppDimensions.paddingXLarge),
                 // Divider with "or"

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
+import '../services/auth_service.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({Key? key}) : super(key: key);
@@ -15,6 +16,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   final _currentPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -24,15 +27,43 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     super.dispose();
   }
 
-  void _handleChangePassword() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement change password logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Đã đổi mật khẩu thành công'),
-        ),
-      );
-      Navigator.of(context).pop();
+  Future<void> _handleChangePassword() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call Supabase Auth API để đổi mật khẩu
+      await _authService.updatePassword(_newPasswordController.text);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã đổi mật khẩu thành công'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        Navigator.of(context).pop();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -189,7 +220,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                     const SizedBox(width: AppDimensions.paddingSmall),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _handleChangePassword,
+                        onPressed: _isLoading ? null : _handleChangePassword,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: AppColors.white,
@@ -205,7 +236,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                           elevation: 0,
                         ),
                         child: Text(
-                          'Đổi Mật Khẩu',
+                          _isLoading ? 'Đang xử lý...' : 'Đổi Mật Khẩu',
                           style: R.styles.body(
                             size: 16,
                             weight: FontWeight.w600,

@@ -19,9 +19,14 @@ void main() async {
   // Initialize Supabase (will read from .env or use provided values)
   try {
     await SupabaseService.initialize();
+    debugPrint('✅ Supabase initialized successfully');
   } catch (e) {
-    debugPrint('Error initializing Supabase: $e');
+    debugPrint('❌ Error initializing Supabase: $e');
+    debugPrint('⚠️  App will continue but Supabase features may not work');
+    debugPrint(
+        '💡 Make sure .env file exists with SUPABASE_URL and SUPABASE_ANON_KEY');
     // App will still run but Supabase features won't work
+    // User will see error when trying to use Supabase features
   }
 
   runApp(const MyApp());

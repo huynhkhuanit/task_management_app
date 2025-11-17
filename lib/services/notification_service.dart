@@ -5,7 +5,8 @@ import 'supabase_service.dart';
 
 /// Notification Service - Xử lý notifications
 class NotificationService {
-  final SupabaseClient _client = SupabaseService.client;
+  /// Lazy getter để tránh khởi tạo client trước khi Supabase được initialize
+  SupabaseClient get _client => SupabaseService.client;
   
   /// Lấy tất cả notifications của user hiện tại
   /// 

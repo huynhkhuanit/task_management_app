@@ -3,6 +3,7 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
+import '../services/auth_service.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({Key? key}) : super(key: key);
@@ -14,6 +15,8 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
+  final _authService = AuthService();
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -21,12 +24,49 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _handleSendRecoveryLink() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: Implement send recovery link logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đã gửi liên kết khôi phục!')),
-      );
+  Future<void> _handleSendRecoveryLink() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call Supabase Auth API để gửi email reset password
+      await _authService.resetPassword(_emailController.text.trim());
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã gửi liên kết khôi phục! Vui lòng kiểm tra email.'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+
+        // Quay lại màn hình login sau 2 giây
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -110,8 +150,11 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                 const SizedBox(height: AppDimensions.paddingXLarge * 2),
                 // Send recovery link button
                 PrimaryButton(
-                  text: 'Gửi liên kết khôi phục',
-                  onPressed: _handleSendRecoveryLink,
+                  text: _isLoading ? 'Đang gửi...' : 'Gửi liên kết khôi phục',
+                  isLoading: _isLoading,
+                  onPressed: () {
+                    _handleSendRecoveryLink();
+                  },
                 ),
                 const SizedBox(height: AppDimensions.paddingXLarge * 2),
                 // Back to login link

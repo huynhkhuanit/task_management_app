@@ -5,6 +5,7 @@ import '../res/fonts/font_resources.dart';
 import '../widgets/custom_input_field.dart';
 import '../widgets/custom_buttons.dart';
 import '../utils/navigation_helper.dart';
+import '../services/auth_service.dart';
 import 'login_screen.dart';
 
 class SignUpScreen extends StatefulWidget {
@@ -20,7 +21,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _authService = AuthService();
   bool _agreeToTerms = false;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -31,30 +34,67 @@ class _SignUpScreenState extends State<SignUpScreen> {
     super.dispose();
   }
 
-  void _handleSignUp() {
-    if (_formKey.currentState!.validate()) {
-      if (!_agreeToTerms) {
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (!_agreeToTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Vui lòng đồng ý với Điều khoản Dịch vụ và Chính sách Bảo mật'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Call Supabase Auth API để đăng ký
+      await _authService.signUp(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+        fullName: _nameController.text.trim(),
+      );
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text(
-                'Vui lòng đồng ý với Điều khoản Dịch vụ và Chính sách Bảo mật'),
+            content: Text('Đăng ký thành công!'),
+            backgroundColor: AppColors.success,
           ),
         );
-        return;
+
+        // Navigate to login screen after successful signup
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            NavigationHelper.pushReplacementSlideTransition(
+              context,
+              const LoginScreen(),
+            );
+          }
+        });
       }
-      // TODO: Implement sign up logic
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Đăng ký thành công!')),
-      );
-      // Navigate to login screen after successful signup
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          NavigationHelper.pushReplacementSlideTransition(
-            context,
-            const LoginScreen(),
-          );
-        }
-      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString().replaceFirst('Exception: ', '')),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -344,8 +384,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const SizedBox(height: AppDimensions.paddingXLarge * 2),
                 // Sign up button
                 PrimaryButton(
-                  text: 'Tạo Tài Khoản',
-                  onPressed: _handleSignUp,
+                  text: _isLoading ? 'Đang tạo tài khoản...' : 'Tạo Tài Khoản',
+                  isLoading: _isLoading,
+                  onPressed: () {
+                    _handleSignUp();
+                  },
                 ),
                 const SizedBox(height: AppDimensions.paddingXLarge),
               ],
