@@ -6,6 +6,7 @@ import '../widgets/custom_buttons.dart';
 import '../services/auth_service.dart';
 import '../utils/navigation_helper.dart';
 import 'home_screen.dart';
+import 'set_password_screen.dart';
 
 class OTPVerificationScreen extends StatefulWidget {
   final String email;
@@ -34,6 +35,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
     8,
     (index) => FocusNode(),
   );
+  final List<bool> _focusStates = List.generate(8, (_) => false);
   bool _isLoading = false;
   int _countdown = 60;
 
@@ -41,6 +43,14 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
   void initState() {
     super.initState();
     _startCountdown();
+    // Add listeners to focus nodes for real-time UI updates
+    for (int i = 0; i < _focusNodes.length; i++) {
+      _focusNodes[i].addListener(() {
+        setState(() {
+          _focusStates[i] = _focusNodes[i].hasFocus;
+        });
+      });
+    }
   }
 
   @override
@@ -105,30 +115,40 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
       if (mounted) {
         if (widget.isSignUp) {
+          // Nếu là đăng ký, chuyển đến màn hình tạo mật khẩu
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Đăng ký thành công!'),
+              content: Text('Xác minh OTP thành công!'),
               backgroundColor: AppColors.success,
             ),
           );
+
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              NavigationHelper.pushReplacementSlideTransition(
+                context,
+                SetPasswordScreen(email: widget.email),
+              );
+            }
+          });
         } else {
+          // Nếu là đăng nhập, chuyển đến màn hình chính
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Đăng nhập thành công!'),
               backgroundColor: AppColors.success,
             ),
           );
-        }
 
-        // Navigate to home screen
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            NavigationHelper.pushReplacementSlideTransition(
-              context,
-              const HomeScreen(),
-            );
-          }
-        });
+          Future.delayed(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              NavigationHelper.pushReplacementSlideTransition(
+                context,
+                const HomeScreen(),
+              );
+            }
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -237,55 +257,90 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                 builder: (context, constraints) {
                   // Calculate available width and spacing
                   final availableWidth = constraints.maxWidth;
-                  final spacing = 8.0; // Spacing between fields
-                  final fieldWidth = (availableWidth - (spacing * 7)) /
-                      8; // 8 fields, 7 spaces
-                  final fieldSize =
-                      fieldWidth < 40 ? 40.0 : fieldWidth; // Minimum 40px
+                  final spacing = 8.0; // Spacing hợp lý giữa các ô
+                  final fieldWidth = (availableWidth - (spacing * 7)) / 8;
+                  // Kích thước tối thiểu để đảm bảo text hiển thị tốt
+                  final fieldSize = fieldWidth < 42 ? 42.0 : fieldWidth;
 
                   return Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: List.generate(8, (index) {
-                      return SizedBox(
-                        width: fieldSize,
-                        height: 60,
-                        child: TextField(
-                          controller: _controllers[index],
-                          focusNode: _focusNodes[index],
-                          textAlign: TextAlign.center,
-                          keyboardType: TextInputType.number,
-                          maxLength: 1,
-                          style: R.styles.heading2(
-                            color: AppColors.black,
-                            weight: FontWeight.w700,
-                          ),
-                          decoration: InputDecoration(
-                            counterText: '',
-                            filled: true,
-                            fillColor: AppColors.white,
-                            border: OutlineInputBorder(
+                      return ValueListenableBuilder<TextEditingValue>(
+                        valueListenable: _controllers[index],
+                        builder: (context, value, child) {
+                          final hasFocus = _focusStates[index];
+                          final hasValue = value.text.isNotEmpty;
+
+                          return AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            width: fieldSize,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(
                                 AppDimensions.borderRadiusMedium,
                               ),
-                              borderSide: const BorderSide(
-                                color: AppColors.greyLight,
+                              border: Border.all(
+                                color: hasFocus
+                                    ? AppColors.primary
+                                    : hasValue
+                                        ? AppColors.primary.withOpacity(0.3)
+                                        : AppColors.greyLight,
+                                width: hasFocus ? 2 : 1.5,
+                              ),
+                              boxShadow: hasFocus
+                                  ? [
+                                      BoxShadow(
+                                        color:
+                                            AppColors.primary.withOpacity(0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ]
+                                  : hasValue
+                                      ? [
+                                          BoxShadow(
+                                            color: AppColors.primary
+                                                .withOpacity(0.1),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 1),
+                                          ),
+                                        ]
+                                      : null,
+                            ),
+                            child: Center(
+                              child: TextField(
+                                controller: _controllers[index],
+                                focusNode: _focusNodes[index],
+                                textAlign: TextAlign.center,
+                                textAlignVertical: TextAlignVertical.center,
+                                keyboardType: TextInputType.number,
+                                maxLength: 1,
+                                style: R.styles.body(
+                                  color: AppColors.black,
+                                  size: 24, // Font size lớn để dễ đọc
+                                  weight: FontWeight.w700,
+                                ),
+                                decoration: InputDecoration(
+                                  counterText: '',
+                                  filled: false,
+                                  contentPadding: EdgeInsets.zero,
+                                  isDense: true,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  errorBorder: InputBorder.none,
+                                  focusedErrorBorder: InputBorder.none,
+                                ),
+                                onChanged: (value) => _onChanged(index, value),
+                                inputFormatters: [
+                                  FilteringTextInputFormatter.digitsOnly,
+                                ],
                               ),
                             ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(
-                                AppDimensions.borderRadiusMedium,
-                              ),
-                              borderSide: const BorderSide(
-                                color: AppColors.primary,
-                                width: 2,
-                              ),
-                            ),
-                          ),
-                          onChanged: (value) => _onChanged(index, value),
-                          inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
-                          ],
-                        ),
+                          );
+                        },
                       );
                     }),
                   );
