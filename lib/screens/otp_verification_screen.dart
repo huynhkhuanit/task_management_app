@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../widgets/custom_buttons.dart';
@@ -7,6 +8,34 @@ import '../services/auth_service.dart';
 import '../utils/navigation_helper.dart';
 import 'home_screen.dart';
 import 'set_password_screen.dart';
+
+// Custom TextInputFormatter để detect backspace khi ô trống
+class _BackspaceFormatter extends TextInputFormatter {
+  final VoidCallback onBackspace;
+  final int fieldIndex;
+
+  _BackspaceFormatter({
+    required this.onBackspace,
+    required this.fieldIndex,
+  });
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    // Nếu ô đã trống và người dùng nhấn backspace (text vẫn trống)
+    // Điều này có nghĩa là người dùng nhấn backspace trên ô trống
+    if (oldValue.text.isEmpty &&
+        newValue.text.isEmpty &&
+        oldValue.selection.baseOffset == 0 &&
+        newValue.selection.baseOffset == 0) {
+      // Gọi callback để xử lý backspace
+      Future.microtask(() => onBackspace());
+    }
+    return newValue;
+  }
+}
 
 class OTPVerificationScreen extends StatefulWidget {
   final String email;
@@ -79,6 +108,7 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
 
   void _onChanged(int index, String value) {
     if (value.length == 1) {
+      // Người dùng nhập số mới
       _controllers[index].text = value;
       if (index < 7) {
         _focusNodes[index + 1].requestFocus();
@@ -86,8 +116,13 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
         _focusNodes[index].unfocus();
         _verifyOTP();
       }
-    } else if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
+    } else if (value.isEmpty) {
+      // Người dùng xóa số (nhấn backspace/delete)
+      _controllers[index].clear();
+      // Luôn chuyển focus về ô trước (nếu có)
+      if (index > 0) {
+        _focusNodes[index - 1].requestFocus();
+      }
     }
   }
 
@@ -308,35 +343,70 @@ class _OTPVerificationScreenState extends State<OTPVerificationScreen> {
                                         ]
                                       : null,
                             ),
-                            child: Center(
-                              child: TextField(
-                                controller: _controllers[index],
-                                focusNode: _focusNodes[index],
-                                textAlign: TextAlign.center,
-                                textAlignVertical: TextAlignVertical.center,
-                                keyboardType: TextInputType.number,
-                                maxLength: 1,
-                                style: R.styles.body(
-                                  color: AppColors.black,
-                                  size: 24, // Font size lớn để dễ đọc
-                                  weight: FontWeight.w700,
+                            child: Focus(
+                              onKeyEvent: (node, event) {
+                                // Detect backspace key khi ô trống
+                                if (event is KeyDownEvent &&
+                                    (event.logicalKey ==
+                                            LogicalKeyboardKey.backspace ||
+                                        event.logicalKey ==
+                                            LogicalKeyboardKey.delete)) {
+                                  if (_controllers[index].text.isEmpty &&
+                                      index > 0) {
+                                    // Chuyển focus về ô trước và xóa số trong ô đó
+                                    _focusNodes[index - 1].requestFocus();
+                                    Future.delayed(
+                                        const Duration(milliseconds: 50), () {
+                                      if (mounted &&
+                                          _focusNodes[index - 1].hasFocus) {
+                                        _controllers[index - 1].clear();
+                                      }
+                                    });
+                                    return KeyEventResult.handled;
+                                  }
+                                }
+                                return KeyEventResult.ignored;
+                              },
+                              child: Center(
+                                child: TextField(
+                                  controller: _controllers[index],
+                                  focusNode: _focusNodes[index],
+                                  textAlign: TextAlign.center,
+                                  textAlignVertical: TextAlignVertical.center,
+                                  keyboardType: TextInputType.number,
+                                  maxLength: 1,
+                                  style: R.styles.body(
+                                    color: AppColors.black,
+                                    size: 24, // Font size lớn để dễ đọc
+                                    weight: FontWeight.w700,
+                                  ),
+                                  decoration: InputDecoration(
+                                    counterText: '',
+                                    filled: false,
+                                    contentPadding: EdgeInsets.zero,
+                                    isDense: true,
+                                    border: InputBorder.none,
+                                    enabledBorder: InputBorder.none,
+                                    focusedBorder: InputBorder.none,
+                                    disabledBorder: InputBorder.none,
+                                    errorBorder: InputBorder.none,
+                                    focusedErrorBorder: InputBorder.none,
+                                  ),
+                                  onChanged: (value) =>
+                                      _onChanged(index, value),
+                                  onTap: () {
+                                    // Khi tap vào ô, select all text để có thể xóa dễ dàng
+                                    _controllers[index].selection =
+                                        TextSelection(
+                                      baseOffset: 0,
+                                      extentOffset:
+                                          _controllers[index].text.length,
+                                    );
+                                  },
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  ],
                                 ),
-                                decoration: InputDecoration(
-                                  counterText: '',
-                                  filled: false,
-                                  contentPadding: EdgeInsets.zero,
-                                  isDense: true,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  errorBorder: InputBorder.none,
-                                  focusedErrorBorder: InputBorder.none,
-                                ),
-                                onChanged: (value) => _onChanged(index, value),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.digitsOnly,
-                                ],
                               ),
                             ),
                           );
