@@ -36,8 +36,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   // AI Analysis state
   String _aiAnalysis = '';
   bool _isAnalyzing = false;
-  late AnimationController _animationController;
-  late Animation<double> _animation;
+  AnimationController? _animationController;
+  Animation<double>? _animation;
 
   @override
   void initState() {
@@ -48,11 +48,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
-    )..repeat();
+    );
 
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
-        parent: _animationController,
+        parent: _animationController!,
         curve: Curves.easeInOut,
       ),
     );
@@ -63,7 +63,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _animationController.dispose();
+    _animationController?.dispose();
     super.dispose();
   }
 
@@ -245,7 +245,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         _isAnalyzing = true;
         _aiAnalysis = '';
       });
-      _animationController.repeat();
+      _animationController?.repeat();
     }
 
     try {
@@ -273,7 +273,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         setState(() {
           _aiAnalysis = analysis;
           _isAnalyzing = false;
-          _animationController.stop();
+          _animationController?.stop();
         });
       }
     } catch (e) {
@@ -281,7 +281,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         setState(() {
           _isAnalyzing = false;
           _aiAnalysis = 'Không thể tải phân tích AI. Vui lòng thử lại sau.';
-          _animationController.stop();
+          _animationController?.stop();
         });
       }
     }
@@ -871,10 +871,10 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (_isAnalyzing)
+          if (_isAnalyzing && _animation != null)
             // Animation "Phân tích dữ liệu"
             AnimatedBuilder(
-              animation: _animation,
+              animation: _animation!,
               builder: (context, child) {
                 return Container(
                   padding: const EdgeInsets.all(AppDimensions.paddingMedium),
@@ -887,7 +887,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                   child: Row(
                     children: [
                       RotationTransition(
-                        turns: _animation,
+                        turns: _animation!,
                         child: Icon(
                           Icons.psychology_outlined,
                           color: AppColors.primary,
@@ -995,7 +995,8 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
   /// Tạo loading dots animation
   String _getLoadingDots() {
-    final dotCount = ((_animation.value * 3).floor() % 4);
+    if (_animation == null) return '';
+    final dotCount = ((_animation!.value * 3).floor() % 4);
     return '.' * dotCount;
   }
 
