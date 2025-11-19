@@ -77,8 +77,34 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
       // Calculate statistics based on filtered tasks
       _totalTasks = filteredTasks.length;
-      final completedTasks =
-          filteredTasks.where((t) => t.status == TaskStatus.completed).length;
+
+      // Count completed tasks - use all tasks, not filtered by period for completion count
+      // But only count those that were created/completed within the period
+      final completedTasks = allTasks.where((t) {
+        if (t.status != TaskStatus.completed) return false;
+        // Check if task was created or completed within the period
+        final taskDate = t.dueDate ?? t.time;
+        final now = DateTime.now();
+        DateTime startDate;
+        switch (_selectedPeriod) {
+          case 0: // Tuần
+            final weekStart = now.subtract(Duration(days: now.weekday - 1));
+            startDate =
+                DateTime(weekStart.year, weekStart.month, weekStart.day);
+            break;
+          case 1: // Tháng
+            startDate = DateTime(now.year, now.month, 1);
+            break;
+          case 2: // Năm
+            startDate = DateTime(now.year, 1, 1);
+            break;
+          default:
+            startDate = DateTime(now.year, now.month, 1);
+        }
+        return taskDate.isAfter(startDate.subtract(const Duration(days: 1))) &&
+            taskDate.isBefore(now.add(const Duration(days: 1)));
+      }).length;
+
       _overdueTasks = filteredOverdueTasks.length;
 
       // Calculate completion rate
@@ -104,10 +130,15 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       ];
 
       final categoryMap = <String, int>{};
+      int noCategoryCount = 0;
+
       for (var task in filteredTasks) {
         if (task.categoryId != null) {
           categoryMap[task.categoryId!] =
               (categoryMap[task.categoryId!] ?? 0) + 1;
+        } else {
+          // Count tasks without category
+          noCategoryCount++;
         }
       }
 
@@ -125,6 +156,19 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           ));
           colorIndex++;
         }
+      }
+
+      // Add "Không có danh mục" if there are tasks without category
+      if (noCategoryCount > 0) {
+        final noCategoryPercentage = _totalTasks > 0
+            ? ((noCategoryCount / _totalTasks) * 100).round()
+            : 0;
+        _categoryData.add(CategoryData(
+          name: 'Không có danh mục',
+          count: noCategoryCount,
+          percentage: noCategoryPercentage,
+          color: AppColors.grey,
+        ));
       }
 
       // Calculate completion data based on period

@@ -50,7 +50,14 @@ class _TasksScreenState extends State<TasksScreen> {
   List<Task> get _filteredTasks {
     var tasks = _allTasks;
 
-    // Filter by category
+    // First, exclude completed tasks unless we're on "Hoàn thành" tab
+    if (_selectedCategoryIndex != 3) {
+      // Exclude completed tasks from all tabs except "Hoàn thành"
+      tasks =
+          tasks.where((task) => task.status != TaskStatus.completed).toList();
+    }
+
+    // Filter by category tab
     if (_selectedCategoryIndex == 1) {
       // Hôm nay
       final today = DateTime.now();
@@ -71,10 +78,11 @@ class _TasksScreenState extends State<TasksScreen> {
                 task.dueDate!.day == today.day);
       }).toList();
     } else if (_selectedCategoryIndex == 3) {
-      // Hoàn thành
+      // Hoàn thành - only show completed tasks
       tasks =
           tasks.where((task) => task.status == TaskStatus.completed).toList();
     }
+    // _selectedCategoryIndex == 0 means "Tất cả" - show all non-completed tasks (already filtered above)
 
     // Filter by priority
     if (_selectedPriorities.isNotEmpty) {
