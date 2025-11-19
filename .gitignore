@@ -141,3 +141,6 @@ logs/
 
 # Note: pubspec.lock should be committed for Flutter projects
 # It ensures consistent dependency versions across all developers
+
+# Release files (optional - có thể commit nếu muốn)
+# releases/

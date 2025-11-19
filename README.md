@@ -165,6 +165,18 @@ flutter build ios --release
 4. **Modern UI/UX**: Giao diện hiện đại, dễ sử dụng
 5. **Responsive Design**: Tối ưu cho nhiều kích thước màn hình
 
+## 🚀 Build & Release
+
+Xem hướng dẫn chi tiết trong:
+- [QUICK_START_RELEASE.md](QUICK_START_RELEASE.md) - Hướng dẫn nhanh
+- [BUILD_AND_RELEASE.md](BUILD_AND_RELEASE.md) - Hướng dẫn chi tiết
+
+### Build nhanh:
+```bash
+flutter build apk --release
+flutter build appbundle --release
+```
+
 ## 📚 Tài liệu tham khảo
 
 - [Flutter Documentation](https://flutter.dev/docs)
