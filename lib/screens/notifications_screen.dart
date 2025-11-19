@@ -137,90 +137,152 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Widget _buildNotificationIcon(NotificationItem notification) {
+    final iconColor = notification.iconColor ?? AppColors.primary;
+    final isUpcoming = notification.type == NotificationType.upcoming;
+
     return Container(
-      width: 40,
-      height: 40,
+      width: 48,
+      height: 48,
       decoration: BoxDecoration(
-        color: notification.iconColor?.withOpacity(0.2) ??
-            AppColors.primaryLight.withOpacity(0.2),
+        color: iconColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(
-          notification.type == NotificationType.upcoming ? 8 : 20,
+          isUpcoming
+              ? AppDimensions.borderRadiusMedium
+              : AppDimensions.borderRadiusLarge,
+        ),
+        border: Border.all(
+          color: iconColor.withOpacity(0.2),
+          width: 1,
         ),
       ),
       child: Icon(
         notification.icon,
-        color: notification.iconColor ?? AppColors.primary,
-        size: 20,
+        color: iconColor,
+        size: 24,
       ),
     );
   }
 
   Widget _buildNotificationItem(NotificationItem notification) {
-    return InkWell(
-      onTap: () => _handleNotificationTap(notification),
-      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppDimensions.paddingSmall),
-        padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-        decoration: BoxDecoration(
-          color: notification.getBackgroundColor(),
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Blue dot indicator for unread
-            if (!notification.isRead)
-              Container(
-                width: 8,
-                height: 8,
-                margin: const EdgeInsets.only(
-                  top: 6,
-                  right: AppDimensions.paddingSmall,
-                ),
-                decoration: const BoxDecoration(
-                  color: AppColors.primary,
-                  shape: BoxShape.circle,
-                ),
-              )
-            else
-              const SizedBox(width: 8 + AppDimensions.paddingSmall),
-            // Notification icon
-            _buildNotificationIcon(notification),
-            const SizedBox(width: AppDimensions.paddingMedium),
-            // Notification content
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    notification.title,
-                    style: R.styles.body(
-                      size: 16,
-                      weight: FontWeight.w700,
-                      color: AppColors.black,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    notification.description,
-                    style: R.styles.body(
-                      size: 14,
-                      color: AppColors.grey,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    notification.getTimeAgo(),
-                    style: R.styles.body(
-                      size: 12,
-                      color: AppColors.grey,
-                    ),
-                  ),
-                ],
+    final isUnread = !notification.isRead;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _handleNotificationTap(notification),
+          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+          child: Container(
+            padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+            decoration: BoxDecoration(
+              color: AppColors.white,
+              borderRadius:
+                  BorderRadius.circular(AppDimensions.borderRadiusLarge),
+              border: Border.all(
+                color: isUnread
+                    ? (notification.iconColor ?? AppColors.primary)
+                        .withOpacity(0.3)
+                    : AppColors.greyLight,
+                width: isUnread ? 1.5 : 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-          ],
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Unread indicator bar
+                if (isUnread)
+                  Container(
+                    width: 4,
+                    // margin: const EdgeInsets.only(
+                    //     right: AppDimensions.paddingMedium),
+                    decoration: BoxDecoration(
+                      color: notification.iconColor ?? AppColors.primary,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  )
+                else
+                  const SizedBox(width: 4 + AppDimensions.paddingMedium),
+                // Notification icon
+                _buildNotificationIcon(notification),
+                const SizedBox(width: AppDimensions.paddingMedium),
+                // Notification content
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              notification.title,
+                              style: R.styles.body(
+                                size: 16,
+                                weight: FontWeight.w700,
+                                color: AppColors.black,
+                              ),
+                            ),
+                          ),
+                          if (isUnread)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.only(
+                                top: 6,
+                                left: AppDimensions.paddingSmall,
+                              ),
+                              decoration: BoxDecoration(
+                                color:
+                                    notification.iconColor ?? AppColors.primary,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: AppDimensions.paddingSmall),
+                      Text(
+                        notification.description,
+                        style: R.styles
+                            .body(
+                              size: 14,
+                              color: AppColors.greyDark,
+                            )
+                            .copyWith(height: 1.4),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: AppDimensions.paddingSmall),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.access_time,
+                            size: 12,
+                            color: AppColors.grey,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            notification.getTimeAgo(),
+                            style: R.styles.body(
+                              size: 12,
+                              color: AppColors.grey,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );
@@ -229,10 +291,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.white,
+      backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
-        backgroundColor: AppColors.white,
+        backgroundColor: const Color(0xFFF7F9FC),
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(
             Icons.arrow_back,
@@ -263,69 +327,109 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: CircularProgressIndicator(),
-              )
-            : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: AppColors.error,
-                        ),
-                        const SizedBox(height: AppDimensions.paddingLarge),
-                        Text(
-                          'Lỗi tải thông báo',
-                          style: R.styles.body(
-                            size: 16,
+        child: Container(
+          color: const Color(0xFFF7F9FC),
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(
+                    color: AppColors.primary,
+                  ),
+                )
+              : _errorMessage != null
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.error_outline,
+                            size: 64,
                             color: AppColors.error,
                           ),
-                        ),
-                        const SizedBox(height: AppDimensions.paddingMedium),
-                        ElevatedButton(
-                          onPressed: _loadNotifications,
-                          child: const Text('Thử lại'),
-                        ),
-                      ],
-                    ),
-                  )
-                : _notifications.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.notifications_none,
-                              size: 64,
-                              color: AppColors.greyLight,
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          Text(
+                            'Lỗi tải thông báo',
+                            style: R.styles.body(
+                              size: 16,
+                              color: AppColors.error,
                             ),
-                            const SizedBox(height: AppDimensions.paddingLarge),
-                            Text(
-                              'Không có thông báo',
-                              style: R.styles.body(
-                                size: 16,
-                                color: AppColors.grey,
+                          ),
+                          const SizedBox(height: AppDimensions.paddingMedium),
+                          ElevatedButton(
+                            onPressed: _loadNotifications,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: AppColors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppDimensions.paddingLarge,
+                                vertical: AppDimensions.paddingMedium,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppDimensions.borderRadiusMedium,
+                                ),
                               ),
                             ),
-                          ],
-                        ),
-                      )
-                    : RefreshIndicator(
-                        onRefresh: _loadNotifications,
-                        child: ListView.builder(
-                          padding:
-                              const EdgeInsets.all(AppDimensions.paddingLarge),
-                          itemCount: _notifications.length,
-                          itemBuilder: (context, index) {
-                            return _buildNotificationItem(
-                                _notifications[index]);
-                          },
-                        ),
+                            child: const Text('Thử lại'),
+                          ),
+                        ],
                       ),
+                    )
+                  : _notifications.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(
+                                  AppDimensions.paddingLarge,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  Icons.notifications_none,
+                                  size: 48,
+                                  color: AppColors.greyLight,
+                                ),
+                              ),
+                              const SizedBox(
+                                  height: AppDimensions.paddingLarge),
+                              Text(
+                                'Không có thông báo',
+                                style: R.styles.body(
+                                  size: 16,
+                                  color: AppColors.grey,
+                                  weight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(
+                                  height: AppDimensions.paddingSmall),
+                              Text(
+                                'Các thông báo mới sẽ xuất hiện ở đây',
+                                style: R.styles.body(
+                                  size: 14,
+                                  color: AppColors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : RefreshIndicator(
+                          onRefresh: _loadNotifications,
+                          color: AppColors.primary,
+                          child: ListView.builder(
+                            padding: const EdgeInsets.all(
+                              AppDimensions.paddingLarge,
+                            ),
+                            itemCount: _notifications.length,
+                            itemBuilder: (context, index) {
+                              return _buildNotificationItem(
+                                  _notifications[index]);
+                            },
+                          ),
+                        ),
+        ),
       ),
     );
   }
