@@ -321,6 +321,13 @@ class _HomeScreenState extends State<HomeScreen> {
           if (index == 0) {
             _loadTasks();
           }
+          // Reload TasksScreen when switching to tasks tab
+          if (index == 1) {
+            final tasksScreenState = _tasksScreenKey.currentState;
+            if (tasksScreenState != null && tasksScreenState.mounted) {
+              (tasksScreenState as dynamic).reloadTasks();
+            }
+          }
           // Refresh statistics when switching to statistics tab
           if (index == 2) {
             final statisticsScreenState = _statisticsScreenKey.currentState;
@@ -342,13 +349,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 // Reload tasks when returning from AddTaskScreen if task was created successfully
                 if (result == true) {
                   _loadTasks();
-                  // Also reload TasksScreen if it's currently visible
-                  if (_currentIndex == 1) {
-                    final tasksScreenState = _tasksScreenKey.currentState;
-                    if (tasksScreenState != null && tasksScreenState.mounted) {
-                      // Call reloadTasks method using dynamic call
-                      (tasksScreenState as dynamic).reloadTasks();
-                    }
+                  // Always reload TasksScreen (will be visible when user switches to tasks tab)
+                  final tasksScreenState = _tasksScreenKey.currentState;
+                  if (tasksScreenState != null && tasksScreenState.mounted) {
+                    (tasksScreenState as dynamic).reloadTasks();
                   }
                 }
               },
@@ -372,14 +376,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     // Reload tasks when returning from AddTaskScreen if task was created successfully
                     if (result == true) {
                       _loadTasks();
-                      // Also reload TasksScreen if it's currently visible
-                      if (_currentIndex == 1) {
-                        final tasksScreenState = _tasksScreenKey.currentState;
-                        if (tasksScreenState != null &&
-                            tasksScreenState.mounted) {
-                          // Call reloadTasks method using dynamic call
-                          (tasksScreenState as dynamic).reloadTasks();
-                        }
+                      // Always reload TasksScreen (will be visible when user switches to tasks tab)
+                      final tasksScreenState = _tasksScreenKey.currentState;
+                      if (tasksScreenState != null &&
+                          tasksScreenState.mounted) {
+                        (tasksScreenState as dynamic).reloadTasks();
                       }
                     }
                   },
@@ -437,11 +438,18 @@ class _HomeScreenState extends State<HomeScreen> {
         '${displayHour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')} $period';
 
     return InkWell(
-      onTap: () {
-        NavigationHelper.pushSlideTransition(
+      onTap: () async {
+        await NavigationHelper.pushSlideTransition(
           context,
           TaskDetailScreen(task: task),
         );
+        // Reload tasks when returning from TaskDetailScreen (task might have been updated/deleted)
+        await _loadTasks();
+        // Also reload TasksScreen if it exists
+        final tasksScreenState = _tasksScreenKey.currentState;
+        if (tasksScreenState != null && tasksScreenState.mounted) {
+          (tasksScreenState as dynamic).reloadTasks();
+        }
       },
       borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
       child: Container(
@@ -468,6 +476,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
                   // Reload tasks to reflect changes
                   await _loadTasks();
+
+                  // Also reload TasksScreen if it exists (will be visible when user switches to tasks tab)
+                  final tasksScreenState = _tasksScreenKey.currentState;
+                  if (tasksScreenState != null && tasksScreenState.mounted) {
+                    (tasksScreenState as dynamic).reloadTasks();
+                  }
                 } catch (e) {
                   // Show error message if update fails
                   if (mounted) {
