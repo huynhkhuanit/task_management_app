@@ -27,6 +27,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final _profileService = ProfileService();
   final _taskService = TaskService();
+  final GlobalKey _tasksScreenKey = GlobalKey();
   String? _userName;
   String? _avatarUrl;
   List<Task> _todayTasks = [];
@@ -286,7 +287,10 @@ class _HomeScreenState extends State<HomeScreen> {
           // Home screen (index 0)
           _buildHomeContent(),
           // Tasks screen (index 1)
-          const TasksScreen(showBottomNavigationBar: false),
+          TasksScreen(
+            key: _tasksScreenKey,
+            showBottomNavigationBar: false,
+          ),
           // Statistics screen (index 2)
           const StatisticsScreen(),
           // Profile screen (index 3)
@@ -308,11 +312,23 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: _currentIndex == 1
           ? FloatingActionButton(
               heroTag: 'home_fab_tasks',
-              onPressed: () {
-                NavigationHelper.pushSlideTransition(
+              onPressed: () async {
+                final result = await NavigationHelper.pushSlideTransition<bool>(
                   context,
                   const AddTaskScreen(),
                 );
+                // Reload tasks when returning from AddTaskScreen if task was created successfully
+                if (result == true) {
+                  _loadTasks();
+                  // Also reload TasksScreen if it's currently visible
+                  if (_currentIndex == 1) {
+                    final tasksScreenState = _tasksScreenKey.currentState;
+                    if (tasksScreenState != null && tasksScreenState.mounted) {
+                      // Call reloadTasks method using dynamic call
+                      (tasksScreenState as dynamic).reloadTasks();
+                    }
+                  }
+                }
               },
               backgroundColor: AppColors.primary,
               elevation: 0,
@@ -326,13 +342,24 @@ class _HomeScreenState extends State<HomeScreen> {
               ? FloatingActionButton(
                   heroTag: 'home_fab_home',
                   onPressed: () async {
-                    await Navigator.of(context).push(
+                    final result = await Navigator.of(context).push<bool>(
                       MaterialPageRoute(
                         builder: (context) => const AddTaskScreen(),
                       ),
                     );
-                    // Reload tasks when returning from AddTaskScreen
-                    _loadTasks();
+                    // Reload tasks when returning from AddTaskScreen if task was created successfully
+                    if (result == true) {
+                      _loadTasks();
+                      // Also reload TasksScreen if it's currently visible
+                      if (_currentIndex == 1) {
+                        final tasksScreenState = _tasksScreenKey.currentState;
+                        if (tasksScreenState != null &&
+                            tasksScreenState.mounted) {
+                          // Call reloadTasks method using dynamic call
+                          (tasksScreenState as dynamic).reloadTasks();
+                        }
+                      }
+                    }
                   },
                   backgroundColor: AppColors.primary,
                   elevation: 0,

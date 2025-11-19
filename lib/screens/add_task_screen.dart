@@ -3,8 +3,11 @@ import 'package:file_picker/file_picker.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import '../models/category_model.dart';
 import '../utils/navigation_helper.dart';
-import 'categories_screen.dart';
+import '../services/category_service.dart';
+import '../services/task_service.dart';
+import 'add_category_screen.dart';
 
 class AddTaskScreen extends StatefulWidget {
   const AddTaskScreen({Key? key}) : super(key: key);
@@ -16,6 +19,8 @@ class AddTaskScreen extends StatefulWidget {
 class _AddTaskScreenState extends State<AddTaskScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
+  final _categoryService = CategoryService();
+  final _taskService = TaskService();
   String? _selectedCategory;
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
@@ -25,6 +30,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   final List<TextEditingController> _subTaskControllers = [];
   final List<PlatformFile> _attachedFiles = [];
   bool _filesExpanded = false;
+  bool _isSaving = false;
 
   @override
   void initState() {
@@ -44,20 +50,35 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
   }
 
   Future<void> _showCategoryPicker() async {
-    final result = await NavigationHelper.pushSlideTransition<String>(
-      context,
-      CategoriesScreen(
-        selectedCategoryName: _selectedCategory,
-        onCategorySelected: (categoryName) {
-          Navigator.of(context).pop(categoryName);
-        },
-      ),
-    );
+    try {
+      final categories = await _categoryService.getCategories();
 
-    if (result != null) {
-      setState(() {
-        _selectedCategory = result;
-      });
+      if (!mounted) return;
+
+      final result = await showModalBottomSheet<String>(
+        context: context,
+        isScrollControlled: true,
+        backgroundColor: Colors.transparent,
+        builder: (context) => _CategoryPickerModal(
+          categories: categories,
+          selectedCategoryName: _selectedCategory,
+        ),
+      );
+
+      if (result != null) {
+        setState(() {
+          _selectedCategory = result;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải danh mục: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 
@@ -233,8 +254,8 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
     );
   }
 
-  void _saveTask() {
-    if (_titleController.text.isEmpty) {
+  Future<void> _saveTask() async {
+    if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Vui lòng nhập tiêu đề công việc'),
@@ -244,14 +265,84 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       return;
     }
 
-    // TODO: Save task to database/state management
-    Navigator.of(context).pop(true); // Return true to indicate success
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã tạo công việc mới'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Get category ID from category name
+      String? categoryId;
+      if (_selectedCategory != null && _selectedCategory!.isNotEmpty) {
+        try {
+          final categories = await _categoryService.getCategories();
+          final category = categories.firstWhere(
+            (c) => c.name == _selectedCategory,
+          );
+          categoryId = category.id;
+        } catch (e) {
+          // Category not found, continue without categoryId
+          categoryId = null;
+        }
+      }
+
+      // Combine date and time for dueDate
+      DateTime? dueDate;
+      if (_selectedDate != null && _selectedTime != null) {
+        dueDate = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+          _selectedTime!.hour,
+          _selectedTime!.minute,
+        );
+      }
+
+      // Calculate reminder time (15 minutes before due date if reminder is enabled)
+      DateTime? reminderTime;
+      if (_reminderEnabled && dueDate != null) {
+        reminderTime = dueDate.subtract(const Duration(minutes: 15));
+      }
+
+      // Create task in database
+      await _taskService.createTask(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        categoryId: categoryId,
+        dueDate: dueDate,
+        priority: _selectedPriority,
+        reminderEnabled: _reminderEnabled,
+        reminderTime: reminderTime,
+        // Note: Subtasks are not tags, they should be created separately
+        // TODO: Create subtasks in subtasks table after task is created
+      );
+
+      // TODO: Create subtasks if needed (subtasks table exists but no service method yet)
+      // For now, subtasks are stored in _subTasks list but not saved to database
+
+      if (mounted) {
+        Navigator.of(context).pop(true); // Return true to indicate success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã tạo công việc mới'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tạo công việc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildTextField({
@@ -415,12 +506,26 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                           _buildTaskDetailItem(
                             icon: Icons.layers_outlined,
                             label: 'Danh mục',
-                            trailing: Text(
-                              _selectedCategory ?? 'Công việc',
-                              style: R.styles.body(
-                                size: 16,
-                                color: AppColors.black,
-                              ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _selectedCategory ?? 'Chọn danh mục',
+                                  style: R.styles.body(
+                                    size: 16,
+                                    color: _selectedCategory != null
+                                        ? AppColors.black
+                                        : AppColors.grey,
+                                  ),
+                                ),
+                                const SizedBox(
+                                    width: AppDimensions.paddingSmall),
+                                Icon(
+                                  Icons.chevron_right,
+                                  color: AppColors.grey,
+                                  size: 20,
+                                ),
+                              ],
                             ),
                             onTap: _showCategoryPicker,
                           ),
@@ -801,7 +906,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton(
-                      onPressed: _saveTask,
+                      onPressed: _isSaving ? null : _saveTask,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
@@ -816,14 +921,25 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Lưu',
-                        style: R.styles.body(
-                          size: 16,
-                          weight: FontWeight.w600,
-                          color: AppColors.white,
-                        ),
-                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              'Lưu',
+                              style: R.styles.body(
+                                size: 16,
+                                weight: FontWeight.w600,
+                                color: AppColors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -1814,6 +1930,250 @@ class _CustomDatePickerState extends State<_CustomDatePicker> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CategoryPickerModal extends StatefulWidget {
+  final List<Category> categories;
+  final String? selectedCategoryName;
+
+  const _CategoryPickerModal({
+    required this.categories,
+    this.selectedCategoryName,
+  });
+
+  @override
+  State<_CategoryPickerModal> createState() => _CategoryPickerModalState();
+}
+
+class _CategoryPickerModalState extends State<_CategoryPickerModal> {
+  String? _selectedCategoryName;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedCategoryName = widget.selectedCategoryName;
+  }
+
+  Future<void> _addNewCategory() async {
+    final result = await NavigationHelper.pushSlideTransition<Category>(
+      context,
+      const AddCategoryScreen(),
+    );
+
+    if (result != null && mounted) {
+      setState(() {
+        _selectedCategoryName = result.name;
+      });
+      // Return the new category name
+      Navigator.of(context).pop(result.name);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.75,
+      ),
+      decoration: const BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(AppDimensions.borderRadiusXLarge),
+        ),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar
+          Container(
+            margin: const EdgeInsets.only(top: AppDimensions.paddingMedium),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: AppColors.greyLight,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          // Title Section
+          Padding(
+            padding: const EdgeInsets.fromLTRB(
+              AppDimensions.paddingLarge,
+              AppDimensions.paddingLarge,
+              AppDimensions.paddingLarge,
+              AppDimensions.paddingMedium,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Chọn danh mục',
+                    style: R.styles.heading2(
+                      color: AppColors.black,
+                      weight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Container(
+                    width: 40,
+                    height: 40,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add,
+                      color: AppColors.white,
+                      size: 24,
+                    ),
+                  ),
+                  onPressed: _addNewCategory,
+                ),
+              ],
+            ),
+          ),
+          // Categories List
+          Flexible(
+            child: widget.categories.isEmpty
+                ? Center(
+                    child: Padding(
+                      padding:
+                          const EdgeInsets.all(AppDimensions.paddingXLarge),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.category_outlined,
+                            size: 64,
+                            color: AppColors.grey.withOpacity(0.4),
+                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+                          Text(
+                            'Chưa có danh mục nào',
+                            style: R.styles.body(
+                              size: 16,
+                              color: AppColors.grey,
+                              weight: FontWeight.w400,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: AppDimensions.paddingSmall),
+                          Text(
+                            'Nhấn nút + để thêm danh mục mới',
+                            style: R.styles.body(
+                              size: 14,
+                              color: AppColors.grey,
+                              weight: FontWeight.w400,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppDimensions.paddingLarge,
+                    ),
+                    shrinkWrap: true,
+                    itemCount: widget.categories.length,
+                    itemBuilder: (context, index) {
+                      final category = widget.categories[index];
+                      final isSelected = _selectedCategoryName == category.name;
+                      return InkWell(
+                        onTap: () {
+                          Navigator.of(context).pop(category.name);
+                        },
+                        borderRadius: BorderRadius.circular(
+                          AppDimensions.borderRadiusLarge,
+                        ),
+                        child: Container(
+                          margin: const EdgeInsets.only(
+                            bottom: AppDimensions.paddingMedium,
+                          ),
+                          padding: const EdgeInsets.all(
+                            AppDimensions.paddingMedium,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusLarge,
+                            ),
+                            border: Border.all(
+                              color: isSelected
+                                  ? AppColors.primary
+                                  : AppColors.greyLight,
+                              width: isSelected ? 2 : 1,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              // Category icon
+                              Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: category.color.withOpacity(0.1),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(
+                                  category.icon,
+                                  color: category.color,
+                                  size: 24,
+                                ),
+                              ),
+                              const SizedBox(
+                                  width: AppDimensions.paddingMedium),
+                              // Category info
+                              Expanded(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      category.name,
+                                      style: R.styles.body(
+                                        size: 16,
+                                        weight: FontWeight.w600,
+                                        color: AppColors.black,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      '${category.taskCount} công việc',
+                                      style: R.styles.body(
+                                        size: 14,
+                                        color: AppColors.grey,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              // Selection indicator
+                              if (isSelected)
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: AppColors.primary,
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          const SizedBox(height: AppDimensions.paddingLarge),
+        ],
+      ),
     );
   }
 }

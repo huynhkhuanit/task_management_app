@@ -284,41 +284,53 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                     ),
                   ),
                 )
-              : ReorderableListView.builder(
-                  padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-                  itemCount: _categories.length,
-                  onReorder: _reorderCategories,
-                  proxyDecorator: (child, index, animation) {
-                    return AnimatedBuilder(
-                      animation: animation,
-                      builder: (context, child) {
-                        final double animValue =
-                            Curves.easeInOut.transform(animation.value);
-                        return Material(
-                          color: Colors.transparent,
-                          elevation: 8 + (animValue * 8),
-                          shadowColor: AppColors.primary.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(
-                              AppDimensions.borderRadiusLarge),
-                          clipBehavior: Clip.antiAlias,
-                          child: Opacity(
-                            opacity: 0.9 + (animValue * 0.1),
-                            child: child,
-                          ),
+              : isSelectionMode
+                  ? ListView.builder(
+                      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                      itemCount: _categories.length,
+                      itemBuilder: (context, index) {
+                        final category = _categories[index];
+                        final isSelected =
+                            widget.selectedCategoryName == category.name;
+
+                        return _buildCategoryCard(category, index, isSelected);
+                      },
+                    )
+                  : ReorderableListView.builder(
+                      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                      itemCount: _categories.length,
+                      onReorder: _reorderCategories,
+                      proxyDecorator: (child, index, animation) {
+                        return AnimatedBuilder(
+                          animation: animation,
+                          builder: (context, child) {
+                            final double animValue =
+                                Curves.easeInOut.transform(animation.value);
+                            return Material(
+                              color: Colors.transparent,
+                              elevation: 8 + (animValue * 8),
+                              shadowColor: AppColors.primary.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(
+                                  AppDimensions.borderRadiusLarge),
+                              clipBehavior: Clip.antiAlias,
+                              child: Opacity(
+                                opacity: 0.9 + (animValue * 0.1),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: child,
                         );
                       },
-                      child: child,
-                    );
-                  },
-                  itemBuilder: (context, index) {
-                    final category = _categories[index];
-                    final isSelected =
-                        widget.selectedCategoryName == category.name;
+                      itemBuilder: (context, index) {
+                        final category = _categories[index];
+                        final isSelected =
+                            widget.selectedCategoryName == category.name;
 
-                    return _buildCategoryCard(category, index, isSelected);
-                  },
-                  buildDefaultDragHandles: false,
-                ),
+                        return _buildCategoryCard(category, index, isSelected);
+                      },
+                      buildDefaultDragHandles: false,
+                    ),
       bottomNavigationBar: isSelectionMode
           ? null
           : CustomBottomNavigationBar(
@@ -331,112 +343,131 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
   }
 
   Widget _buildCategoryCard(Category category, int index, bool isSelected) {
-    return ReorderableDragStartListener(
-      key: ValueKey(category.id),
-      index: index,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
-        decoration: BoxDecoration(
-          color: AppColors.white,
-          borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
-          border: Border.all(
-            color: isSelected ? AppColors.primary : AppColors.greyLight,
-            width: isSelected ? 2 : 1,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 2),
-            ),
-          ],
+    final isSelectionMode = widget.onCategorySelected != null;
+
+    final cardContent = Container(
+      margin: const EdgeInsets.only(bottom: AppDimensions.paddingMedium),
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
+        border: Border.all(
+          color: isSelected ? AppColors.primary : AppColors.greyLight,
+          width: isSelected ? 2 : 1,
         ),
-        child: Material(
-          color: Colors.transparent,
-          child: GestureDetector(
-            onTap: () => _editCategory(category),
-            child: Padding(
-              padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-              child: Row(
-                children: [
-                  // Drag handle icon
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: GestureDetector(
+          onDoubleTap: () {
+            _editCategory(category);
+          },
+          onTap: () {
+            if (widget.onCategorySelected != null) {
+              _selectCategory(category);
+            }
+            // Single tap does nothing in normal mode (only double tap opens edit)
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+            child: Row(
+              children: [
+                // Drag handle icon - only show when not in selection mode
+                if (!isSelectionMode)
                   Icon(
                     Icons.drag_handle,
                     color: AppColors.grey,
                     size: 20,
                   ),
+                if (!isSelectionMode)
                   const SizedBox(width: AppDimensions.paddingSmall),
-                  // Category icon
-                  Container(
-                    width: 48,
-                    height: 48,
-                    decoration: BoxDecoration(
-                      color: category.color.withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      category.icon,
-                      color: category.color,
-                      size: 24,
-                    ),
+                // Category icon
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: category.color.withOpacity(0.1),
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: AppDimensions.paddingMedium),
-                  // Category info
-                  Expanded(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          category.name,
-                          style: R.styles.body(
-                            size: 16,
-                            weight: FontWeight.w600,
-                            color: AppColors.black,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          '${category.taskCount} công việc',
-                          style: R.styles.body(
-                            size: 14,
-                            color: AppColors.grey,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ],
-                    ),
+                  child: Icon(
+                    category.icon,
+                    color: category.color,
+                    size: 24,
                   ),
-                  // Selection indicator or menu button
-                  if (widget.onCategorySelected == null)
-                    GestureDetector(
-                      onTap: () {
-                        _showCategoryMenu(context, category);
-                      },
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        child: const Icon(
-                          Icons.more_vert,
+                ),
+                const SizedBox(width: AppDimensions.paddingMedium),
+                // Category info
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text(
+                        category.name,
+                        style: R.styles.body(
+                          size: 16,
+                          weight: FontWeight.w600,
+                          color: AppColors.black,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${category.taskCount} công việc',
+                        style: R.styles.body(
+                          size: 14,
                           color: AppColors.grey,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                    )
-                  else if (isSelected)
-                    const Icon(
-                      Icons.check_circle,
-                      color: AppColors.primary,
+                    ],
+                  ),
+                ),
+                // Selection indicator or menu button
+                if (widget.onCategorySelected == null)
+                  GestureDetector(
+                    onTap: () {
+                      _showCategoryMenu(context, category);
+                    },
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.all(8),
+                      child: const Icon(
+                        Icons.more_vert,
+                        color: AppColors.grey,
+                      ),
                     ),
-                ],
-              ),
+                  )
+                else if (isSelected)
+                  const Icon(
+                    Icons.check_circle,
+                    color: AppColors.primary,
+                  ),
+              ],
             ),
           ),
         ),
       ),
     );
+
+    // Wrap with ReorderableDragStartListener only when not in selection mode
+    if (isSelectionMode) {
+      return cardContent;
+    } else {
+      return ReorderableDragStartListener(
+        key: ValueKey(category.id),
+        index: index,
+        child: cardContent,
+      );
+    }
   }
 }

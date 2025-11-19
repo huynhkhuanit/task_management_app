@@ -12,10 +12,12 @@ import 'categories_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   final bool showBottomNavigationBar;
+  final VoidCallback? onReload;
 
   const TasksScreen({
     Key? key,
     this.showBottomNavigationBar = true,
+    this.onReload,
   }) : super(key: key);
 
   @override
@@ -223,6 +225,11 @@ class _TasksScreenState extends State<TasksScreen> {
     _searchFocusNode.addListener(() {
       setState(() {}); // Update UI when focus changes
     });
+    _loadTasks();
+  }
+
+  // Public method to reload tasks (can be called from parent)
+  void reloadTasks() {
     _loadTasks();
   }
 
@@ -677,12 +684,14 @@ class _TasksScreenState extends State<TasksScreen> {
           ? FloatingActionButton(
               heroTag: 'tasks_screen_fab',
               onPressed: () async {
-                await NavigationHelper.pushSlideTransition(
+                final result = await NavigationHelper.pushSlideTransition<bool>(
                   context,
                   const AddTaskScreen(),
                 );
-                // Reload tasks when returning from AddTaskScreen
-                _loadTasks();
+                // Reload tasks when returning from AddTaskScreen if task was created successfully
+                if (result == true) {
+                  _loadTasks();
+                }
               },
               backgroundColor: AppColors.primary,
               elevation: 0,

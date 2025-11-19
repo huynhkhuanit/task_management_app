@@ -3,6 +3,8 @@ import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../utils/navigation_helper.dart';
+import '../services/task_service.dart';
+import '../services/category_service.dart';
 import 'edit_task_screen.dart';
 
 class TaskDetailScreen extends StatefulWidget {
@@ -18,30 +20,67 @@ class TaskDetailScreen extends StatefulWidget {
 }
 
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
-  // Sample data based on the design
-  final String _description =
-      'Review the draft, gather final data from the analytics team, and prepare the presentation slides for the board meeting.';
-  final DateTime _deadline = DateTime(2024, 10, 28);
-  final String _category = 'Marketing';
-  final String _notes =
-      'Remember to double-check the Q2 comparison figures. Sarah from the sales team has the most updated numbers. Contact her before finalizing.';
+  final _taskService = TaskService();
+  final _categoryService = CategoryService();
 
-  final List<SubTask> _subTasks = [
-    SubTask(title: 'Gather final data from analytics', isCompleted: true),
-    SubTask(title: 'Prepare presentation slides', isCompleted: false),
-    SubTask(title: 'Review draft with team lead', isCompleted: false),
-  ];
+  late Task _task;
+  String? _categoryName;
+  bool _isLoading = true;
+  final List<SubTask> _subTasks = [];
+  final List<Attachment> _attachments = [];
 
-  final List<Attachment> _attachments = [
-    Attachment(
-      fileName: 'Report_Draft_v3.pdf',
-      fileType: FileType.pdf,
-    ),
-    Attachment(
-      fileName: 'Infographic_Data.png',
-      fileType: FileType.image,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _task = widget.task;
+    _loadTaskDetail();
+  }
+
+  Future<void> _loadTaskDetail() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Reload task from database to get latest data
+      final updatedTask = await _taskService.getTaskById(_task.id);
+
+      // Load category name if categoryId exists
+      String? categoryName;
+      if (updatedTask.categoryId != null) {
+        try {
+          final category =
+              await _categoryService.getCategoryById(updatedTask.categoryId!);
+          categoryName = category.name;
+        } catch (e) {
+          // Category not found or error, continue without category name
+        }
+      }
+
+      // TODO: Load subtasks from database
+      // TODO: Load attachments from database
+
+      if (mounted) {
+        setState(() {
+          _task = updatedTask;
+          _categoryName = categoryName;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải chi tiết công việc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
 
   Color _getPriorityColor(TaskPriority priority) {
     switch (priority) {
@@ -119,6 +158,37 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: const Color(0xFFF7F9FC),
+        appBar: AppBar(
+          backgroundColor: const Color(0xFFF7F9FC),
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          surfaceTintColor: Colors.transparent,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back, color: AppColors.black),
+            onPressed: () => Navigator.of(context).pop(),
+          ),
+          title: Text(
+            'Chi tiết công việc',
+            style: R.styles.heading2(
+              color: AppColors.black,
+              weight: FontWeight.w700,
+            ),
+          ),
+          centerTitle: true,
+          leadingWidth: 56,
+          toolbarHeight: 56,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(
+            color: AppColors.primary,
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF7F9FC),
       appBar: AppBar(
@@ -152,7 +222,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   children: [
                     // Task Title
                     Text(
-                      widget.task.title,
+                      _task.title,
                       style: R.styles.heading1(
                         color: AppColors.black,
                         weight: FontWeight.w700,
@@ -161,13 +231,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     const SizedBox(height: AppDimensions.paddingMedium),
 
                     // Task Description
-                    Text(
-                      _description,
-                      style: R.styles.body(
-                        size: 16,
-                        color: AppColors.greyDark,
-                      ).copyWith(height: 1.5),
-                    ),
+                    if (_task.description != null &&
+                        _task.description!.isNotEmpty)
+                      Text(
+                        _task.description!,
+                        style: R.styles
+                            .body(
+                              size: 16,
+                              color: AppColors.greyDark,
+                            )
+                            .copyWith(height: 1.5),
+                      )
+                    else
+                      Text(
+                        'Không có mô tả',
+                        style: R.styles
+                            .body(
+                              size: 16,
+                              color: AppColors.grey,
+                            )
+                            .copyWith(height: 1.5),
+                      ),
                     const SizedBox(height: AppDimensions.paddingLarge),
 
                     // Task Metadata Card
@@ -192,34 +276,51 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       child: Column(
                         children: [
                           // Deadline
-                          _buildMetadataItem(
-                            icon: Icons.calendar_today_outlined,
-                            label: 'Hạn chót',
-                            value: _formatDate(_deadline),
-                            valueColor: AppColors.black,
-                          ),
+                          if (_task.dueDate != null)
+                            _buildMetadataItem(
+                              icon: Icons.calendar_today_outlined,
+                              label: 'Hạn chót',
+                              value: _formatDate(_task.dueDate!),
+                              valueColor: AppColors.black,
+                            )
+                          else
+                            _buildMetadataItem(
+                              icon: Icons.calendar_today_outlined,
+                              label: 'Hạn chót',
+                              value: 'Chưa đặt',
+                              valueColor: AppColors.grey,
+                            ),
                           Divider(height: 1, color: AppColors.greyLight),
 
                           // Priority
                           _buildMetadataItem(
                             icon: Icons.priority_high,
                             label: 'Mức độ ưu tiên',
-                            value: _getPriorityText(widget.task.priority),
-                            valueColor: _getPriorityColor(widget.task.priority),
+                            value: _getPriorityText(_task.priority),
+                            valueColor: _getPriorityColor(_task.priority),
                             isPill: true,
-                            priority: widget.task.priority,
+                            priority: _task.priority,
                           ),
                           Divider(height: 1, color: AppColors.greyLight),
 
                           // Category
-                          _buildMetadataItem(
-                            icon: Icons.campaign_outlined,
-                            label: 'Danh mục',
-                            value: _category,
-                            valueColor: AppColors.primary,
-                            isPill: true,
-                            category: _category,
-                          ),
+                          if (_categoryName != null)
+                            _buildMetadataItem(
+                              icon: Icons.campaign_outlined,
+                              label: 'Danh mục',
+                              value: _categoryName!,
+                              valueColor: AppColors.primary,
+                              isPill: true,
+                              category: _categoryName!,
+                            )
+                          else
+                            _buildMetadataItem(
+                              icon: Icons.campaign_outlined,
+                              label: 'Danh mục',
+                              value: 'Chưa có danh mục',
+                              valueColor: AppColors.grey,
+                              isPill: false,
+                            ),
                         ],
                       ),
                     ),
@@ -246,11 +347,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           width: 1,
                         ),
                       ),
-                      child: Column(
-                        children: _subTasks.map((subTask) {
-                          return _buildSubTaskItem(subTask);
-                        }).toList(),
-                      ),
+                      child: _subTasks.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingLarge,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Chưa có công việc con',
+                                  style: R.styles.body(
+                                    size: 14,
+                                    color: AppColors.grey,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Column(
+                              children: _subTasks.map((subTask) {
+                                return _buildSubTaskItem(subTask);
+                              }).toList(),
+                            ),
                     ),
                     const SizedBox(height: AppDimensions.paddingLarge),
 
@@ -275,47 +391,69 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           width: 1,
                         ),
                       ),
-                      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                      child: Row(
-                        children: _attachments.map((attachment) {
-                          return Expanded(
-                            child: _buildAttachmentItem(attachment),
-                          );
-                        }).toList(),
-                      ),
+                      padding:
+                          const EdgeInsets.all(AppDimensions.paddingMedium),
+                      child: _attachments.isEmpty
+                          ? Center(
+                              child: Text(
+                                'Chưa có file đính kèm',
+                                style: R.styles.body(
+                                  size: 14,
+                                  color: AppColors.grey,
+                                ),
+                              ),
+                            )
+                          : Row(
+                              children: _attachments.map((attachment) {
+                                return Expanded(
+                                  child: _buildAttachmentItem(attachment),
+                                );
+                              }).toList(),
+                            ),
                     ),
                     const SizedBox(height: AppDimensions.paddingLarge),
 
-                    // Notes Section
-                    Text(
-                      'Ghi chú',
-                      style: R.styles.body(
-                        size: 18,
-                        weight: FontWeight.w700,
-                        color: AppColors.black,
+                    // Notes Section - Using description as notes for now
+                    if (_task.description != null &&
+                        _task.description!.isNotEmpty)
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ghi chú',
+                            style: R.styles.body(
+                              size: 18,
+                              weight: FontWeight.w700,
+                              color: AppColors.black,
+                            ),
+                          ),
+                          const SizedBox(height: AppDimensions.paddingSmall),
+                          Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.white,
+                              borderRadius: BorderRadius.circular(
+                                AppDimensions.borderRadiusMedium,
+                              ),
+                              border: Border.all(
+                                color: AppColors.greyLight,
+                                width: 1,
+                              ),
+                            ),
+                            padding: const EdgeInsets.all(
+                              AppDimensions.paddingMedium,
+                            ),
+                            child: Text(
+                              _task.description!,
+                              style: R.styles
+                                  .body(
+                                    size: 16,
+                                    color: AppColors.greyDark,
+                                  )
+                                  .copyWith(height: 1.5),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingSmall),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: AppColors.white,
-                        borderRadius: BorderRadius.circular(
-                          AppDimensions.borderRadiusMedium,
-                        ),
-                        border: Border.all(
-                          color: AppColors.greyLight,
-                          width: 1,
-                        ),
-                      ),
-                      padding: const EdgeInsets.all(AppDimensions.paddingMedium),
-                      child: Text(
-                        _notes,
-                        style: R.styles.body(
-                          size: 16,
-                          color: AppColors.greyDark,
-                        ).copyWith(height: 1.5),
-                      ),
-                    ),
                     const SizedBox(height: AppDimensions.paddingLarge),
                   ],
                 ),
@@ -342,15 +480,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   Expanded(
                     child: OutlinedButton(
                       onPressed: () async {
-                        final result = await NavigationHelper.pushSlideTransition(
+                        final result =
+                            await NavigationHelper.pushSlideTransition(
                           context,
                           EditTaskScreen(
-                            task: widget.task,
+                            task: _task,
                           ),
                         );
                         // If task was updated, refresh the screen
                         if (result == true && mounted) {
-                          // TODO: Refresh task data
+                          await _loadTaskDetail();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Đã cập nhật công việc'),
@@ -581,16 +720,16 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           Expanded(
             child: Text(
               subTask.title,
-              style: R.styles.body(
-                size: 16,
-                color: subTask.isCompleted
-                    ? AppColors.grey
-                    : AppColors.black,
-              ).copyWith(
-                decoration: subTask.isCompleted
-                    ? TextDecoration.lineThrough
-                    : null,
-              ),
+              style: R.styles
+                  .body(
+                    size: 16,
+                    color:
+                        subTask.isCompleted ? AppColors.grey : AppColors.black,
+                  )
+                  .copyWith(
+                    decoration:
+                        subTask.isCompleted ? TextDecoration.lineThrough : null,
+                  ),
             ),
           ),
         ],
@@ -617,8 +756,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             width: 48,
             height: 48,
             decoration: BoxDecoration(
-              color: _getFileIconColor(attachment.fileType)
-                  .withOpacity(0.1),
+              color: _getFileIconColor(attachment.fileType).withOpacity(0.1),
               borderRadius: BorderRadius.circular(
                 AppDimensions.borderRadiusMedium,
               ),
@@ -661,7 +799,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           ),
           content: Text(
-            'Bạn có chắc chắn muốn xóa công việc "${widget.task.title}"? Hành động này không thể hoàn tác.',
+            'Bạn có chắc chắn muốn xóa công việc "${_task.title}"? Hành động này không thể hoàn tác.',
             style: R.styles.body(
               color: AppColors.black,
             ),
@@ -698,27 +836,56 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  void _performDelete() {
-    // TODO: Implement delete task logic (remove from database/state)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã xóa công việc: ${widget.task.title}'),
-      ),
-    );
-    // Navigate back after deletion
-    Navigator.of(context).pop(true); // Return true to indicate deletion
+  Future<void> _performDelete() async {
+    try {
+      await _taskService.deleteTask(_task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xóa công việc: ${_task.title}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // Navigate back after deletion
+        Navigator.of(context).pop(true); // Return true to indicate deletion
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi xóa công việc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
-  void _handleCompleteTask() {
-    // TODO: Implement complete task logic (update task status)
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Đã hoàn thành công việc: ${widget.task.title}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    // Navigate back after completion
-    Navigator.of(context).pop(true); // Return true to indicate completion
+  Future<void> _handleCompleteTask() async {
+    try {
+      await _taskService.completeTask(_task.id);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã hoàn thành công việc: ${_task.title}'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+        // Reload task to get updated status
+        await _loadTaskDetail();
+        // Navigate back after completion
+        Navigator.of(context).pop(true); // Return true to indicate completion
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi hoàn thành công việc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 }
 
@@ -750,4 +917,3 @@ class Attachment {
     required this.fileType,
   });
 }
-

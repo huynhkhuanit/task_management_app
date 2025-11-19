@@ -233,6 +233,7 @@ class TaskService {
     return Task(
       id: json['id'] as String,
       title: json['title'] as String,
+      description: json['description'] as String?,
       project: json['project'] as String? ?? '',
       time: DateTime.parse(json['created_at'] as String),
       status: _stringToStatus(json['status'] as String),
@@ -241,6 +242,7 @@ class TaskService {
           : null,
       priority: _stringToPriority(json['priority'] as String),
       tags: [], // Tags sẽ được load riêng nếu cần
+      categoryId: json['category_id'] as String?,
     );
   }
 
