@@ -20,9 +20,29 @@ class CategoryService {
           .eq('user_id', userId)
           .order('display_order', ascending: true);
       
-      return (response as List)
+      final categories = (response as List)
           .map((json) => _categoryFromJson(json))
           .toList();
+      
+      // Load task count for each category
+      final categoriesWithCount = <Category>[];
+      for (var category in categories) {
+        try {
+          final taskCountResponse = await _client
+              .from('tasks')
+              .select('id')
+              .eq('user_id', userId)
+              .eq('category_id', category.id);
+          
+          final taskCount = (taskCountResponse as List).length;
+          categoriesWithCount.add(category.copyWith(taskCount: taskCount));
+        } catch (e) {
+          // If error, keep taskCount as 0
+          categoriesWithCount.add(category);
+        }
+      }
+      
+      return categoriesWithCount;
     } catch (e) {
       throw Exception('Lỗi lấy danh sách categories: ${e.toString()}');
     }

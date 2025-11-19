@@ -304,7 +304,7 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
       }
 
       // Create task in database
-      await _taskService.createTask(
+      final createdTask = await _taskService.createTask(
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim().isEmpty
             ? null
@@ -314,12 +314,12 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
         priority: _selectedPriority,
         reminderEnabled: _reminderEnabled,
         reminderTime: reminderTime,
-        // Note: Subtasks are not tags, they should be created separately
-        // TODO: Create subtasks in subtasks table after task is created
       );
 
-      // TODO: Create subtasks if needed (subtasks table exists but no service method yet)
-      // For now, subtasks are stored in _subTasks list but not saved to database
+      // Create subtasks if any
+      if (_subTasks.isNotEmpty) {
+        await _taskService.createSubtasks(createdTask.id, _subTasks);
+      }
 
       if (mounted) {
         Navigator.of(context).pop(true); // Return true to indicate success

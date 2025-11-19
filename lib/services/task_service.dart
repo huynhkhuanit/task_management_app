@@ -318,4 +318,24 @@ class TaskService {
       await _addTagsToTask(taskId, tags);
     }
   }
+
+  /// Tạo subtasks cho một task
+  Future<void> createSubtasks(String taskId, List<String> subtaskTitles) async {
+    try {
+      if (subtaskTitles.isEmpty) return;
+
+      final subtaskData = subtaskTitles.asMap().entries.map((entry) {
+        return {
+          'task_id': taskId,
+          'title': entry.value,
+          'is_completed': false,
+          'display_order': entry.key,
+        };
+      }).toList();
+
+      await _client.from('subtasks').insert(subtaskData);
+    } catch (e) {
+      throw Exception('Lỗi tạo subtasks: ${e.toString()}');
+    }
+  }
 }
