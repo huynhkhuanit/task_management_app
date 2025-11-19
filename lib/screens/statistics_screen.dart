@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
+import '../models/task_model.dart';
+import '../services/task_service.dart';
+import '../services/category_service.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({Key? key}) : super(key: key);
@@ -11,65 +14,192 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  int _selectedPeriod = 1; // 0: Tuần, 1: Tháng, 2: Năm
+  final _taskService = TaskService();
+  final _categoryService = CategoryService();
 
-  // Sample data
-  final double completionRate = 85.0;
-  final int overdueTasks = 3;
-  final double performanceScore = 9.2;
-  final int totalTasks = 25;
+  int _selectedPeriod = 1; // 0: Tuần, 1: Tháng, 2: Năm
+  bool _isLoading = true;
+
+  // Statistics data from database
+  double _completionRate = 0.0;
+  int _overdueTasks = 0;
+  double _performanceScore = 0.0;
+  int _totalTasks = 0;
+  List<CategoryData> _categoryData = [];
+  List<BarData> _weeklyData = [];
+  List<double> _performanceTrend = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadStatistics();
+  }
+
+  Future<void> _loadStatistics() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Load all tasks
+      final allTasks = await _taskService.getTasks();
+      final overdueTasksList = await _taskService.getOverdueTasks();
+
+      // Load categories
+      final categories = await _categoryService.getCategories();
+
+      // Calculate statistics
+      _totalTasks = allTasks.length;
+      final completedTasks =
+          allTasks.where((t) => t.status == TaskStatus.completed).length;
+      _overdueTasks = overdueTasksList.length;
+
+      // Calculate completion rate
+      _completionRate =
+          _totalTasks > 0 ? (completedTasks / _totalTasks) * 100 : 0.0;
+
+      // Calculate performance score (0-10 scale)
+      // Based on completion rate and overdue tasks penalty
+      double baseScore = (_completionRate / 100) * 10;
+      double overduePenalty =
+          _overdueTasks * 0.5; // Penalty for each overdue task
+      _performanceScore = (baseScore - overduePenalty).clamp(0.0, 10.0);
+
+      // Calculate category distribution
+      _categoryData = [];
+      final categoryColors = [
+        AppColors.primary,
+        const Color(0xFF10B981),
+        const Color(0xFFFF9500),
+        const Color(0xFF8B5CF6),
+        const Color(0xFFEC4899),
+        const Color(0xFF06B6D4),
+      ];
+
+      final categoryMap = <String, int>{};
+      for (var task in allTasks) {
+        if (task.categoryId != null) {
+          categoryMap[task.categoryId!] =
+              (categoryMap[task.categoryId!] ?? 0) + 1;
+        }
+      }
+
+      int colorIndex = 0;
+      for (var category in categories) {
+        final count = categoryMap[category.id] ?? 0;
+        if (count > 0) {
+          final percentage =
+              _totalTasks > 0 ? ((count / _totalTasks) * 100).round() : 0;
+          _categoryData.add(CategoryData(
+            name: category.name,
+            count: count,
+            percentage: percentage,
+            color: categoryColors[colorIndex % categoryColors.length],
+          ));
+          colorIndex++;
+        }
+      }
+
+      // Calculate weekly completion data
+      _calculateWeeklyData(allTasks);
+
+      // Calculate performance trend (last 7 days)
+      _calculatePerformanceTrend(allTasks);
+
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  void _calculateWeeklyData(List<Task> tasks) {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+
+    final daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+    _weeklyData = [];
+
+    for (int i = 0; i < 7; i++) {
+      final dayStart =
+          DateTime(weekStart.year, weekStart.month, weekStart.day + i);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+
+      // Count tasks that were completed on this day
+      // Since Task model doesn't have completedAt, we'll use dueDate for completed tasks
+      // or count tasks that have dueDate on this day and are completed
+      final completedCount = tasks.where((task) {
+        if (task.status != TaskStatus.completed) return false;
+        // Use dueDate as approximation, or count all completed tasks with dueDate in this range
+        if (task.dueDate != null) {
+          final dueDate = task.dueDate!;
+          return dueDate.isAfter(dayStart.subtract(const Duration(days: 1))) &&
+              dueDate.isBefore(dayEnd);
+        }
+        return false;
+      }).length;
+
+      _weeklyData.add(BarData(
+        day: daysOfWeek[i],
+        value: completedCount,
+      ));
+    }
+  }
+
+  void _calculatePerformanceTrend(List<Task> tasks) {
+    final now = DateTime.now();
+    _performanceTrend = [];
+
+    // Calculate performance for last 7 days
+    for (int i = 6; i >= 0; i--) {
+      final dayStart = DateTime(now.year, now.month, now.day - i);
+      final dayEnd = dayStart.add(const Duration(days: 1));
+
+      final dayTasks = tasks.where((task) {
+        if (task.dueDate == null) return false;
+        final dueDate = task.dueDate!;
+        return dueDate.isAfter(dayStart) && dueDate.isBefore(dayEnd);
+      }).toList();
+
+      if (dayTasks.isEmpty) {
+        _performanceTrend.add(0.0);
+      } else {
+        final completed =
+            dayTasks.where((t) => t.status == TaskStatus.completed).length;
+        final score = (completed / dayTasks.length) * 10;
+        _performanceTrend.add(score);
+      }
+    }
+  }
 
   // Get status based on performance score
   String get statusText {
-    if (performanceScore >= 9.0) return 'Xuất sắc';
-    if (performanceScore >= 7.0) return 'Tốt';
-    if (performanceScore >= 5.0) return 'Khá';
+    if (_performanceScore >= 9.0) return 'Xuất sắc';
+    if (_performanceScore >= 7.0) return 'Tốt';
+    if (_performanceScore >= 5.0) return 'Khá';
     return 'Cần cải thiện';
   }
 
   Color get statusColor {
-    if (performanceScore >= 9.0) return AppColors.success;
-    if (performanceScore >= 7.0) return AppColors.primary;
-    if (performanceScore >= 5.0) return const Color(0xFFFF9500);
+    if (_performanceScore >= 9.0) return AppColors.success;
+    if (_performanceScore >= 7.0) return AppColors.primary;
+    if (_performanceScore >= 5.0) return const Color(0xFFFF9500);
     return AppColors.error;
   }
 
   IconData get statusIcon {
-    if (performanceScore >= 9.0) return Icons.trending_up;
-    if (performanceScore >= 7.0) return Icons.assessment_outlined;
-    if (performanceScore >= 5.0) return Icons.trending_flat;
+    if (_performanceScore >= 9.0) return Icons.trending_up;
+    if (_performanceScore >= 7.0) return Icons.assessment_outlined;
+    if (_performanceScore >= 5.0) return Icons.trending_flat;
     return Icons.trending_down;
   }
-
-  // Category distribution data
-  final List<CategoryData> categoryData = [
-    CategoryData(
-        name: 'Công việc', count: 12, percentage: 50, color: AppColors.primary),
-    CategoryData(
-        name: 'Cá nhân',
-        count: 8,
-        percentage: 30,
-        color: const Color(0xFF10B981)),
-    CategoryData(
-        name: 'Học tập',
-        count: 5,
-        percentage: 20,
-        color: const Color(0xFFFF9500)),
-  ];
-
-  // Weekly completion data
-  final List<BarData> weeklyData = [
-    BarData(day: 'T2', value: 5),
-    BarData(day: 'T3', value: 7),
-    BarData(day: 'T4', value: 12),
-    BarData(day: 'T5', value: 8),
-    BarData(day: 'T6', value: 6),
-    BarData(day: 'T7', value: 4),
-    BarData(day: 'CN', value: 3),
-  ];
-
-  // Performance trend data
-  final List<double> performanceTrend = [7.5, 8.0, 8.5, 9.0, 8.8, 9.2, 9.0];
 
   @override
   Widget build(BuildContext context) {
@@ -114,176 +244,205 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Statistics Cards
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            'Tỷ lệ hoàn thành',
-                            '${completionRate.toInt()}%',
-                            AppColors.primary,
-                            Icons.check_circle_outline,
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.paddingMedium),
-                        Expanded(
-                          child: _buildStatCard(
-                            'Việc quá hạn',
-                            '$overdueTasks',
-                            AppColors.error,
-                            Icons.warning_outlined,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.paddingMedium),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildStatCard(
-                            'Điểm hiệu suất',
-                            performanceScore.toStringAsFixed(1),
-                            const Color(0xFFFF9500),
-                            Icons.star_outline,
-                          ),
-                        ),
-                        const SizedBox(width: AppDimensions.paddingMedium),
-                        Expanded(
-                          child: _buildStatCard(
-                            'Trạng thái',
-                            statusText,
-                            statusColor,
-                            statusIcon,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-
-                    // Job Classification Card
-                    _buildCard(
-                      title: 'Phân loại công việc',
-                      child: Column(
-                        children: [
-                          SizedBox(
-                            height: 200,
-                            child: Center(
-                              child: _buildDonutChart(),
-                            ),
-                          ),
-                          const SizedBox(height: AppDimensions.paddingLarge),
-                          // Legend
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: categoryData.map((data) {
-                              return Padding(
-                                padding: const EdgeInsets.only(
-                                    bottom: AppDimensions.paddingMedium),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 12,
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        color: data.color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    ),
-                                    const SizedBox(
-                                        width: AppDimensions.paddingSmall),
-                                    Text(
-                                      '${data.name} (${data.percentage}%)',
-                                      style: R.styles.body(
-                                        size: 14,
-                                        color: AppColors.black,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            }).toList(),
-                          ),
-                        ],
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
                       ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-
-                    // Completed Tasks Card
-                    _buildCard(
-                      title: 'Công việc hoàn thành',
-                      child: SizedBox(
-                        height: 200,
-                        child: _buildBarChart(),
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-
-                    // Performance Trend Card
-                    _buildCard(
-                      title: 'Xu hướng hiệu suất',
-                      child: SizedBox(
-                        height: 200,
-                        child: _buildLineChart(),
-                      ),
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-
-                    // AI Analysis Section
-                    _buildCard(
-                      title: 'Phân tích từ chuyên gia AI',
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppDimensions.paddingLarge),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.all(
-                                AppDimensions.paddingMedium),
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryLight.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(
-                                  AppDimensions.borderRadiusMedium),
-                            ),
-                            child: Row(
+                          // Statistics Cards
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatCard(
+                                  'Tỷ lệ hoàn thành',
+                                  '${_completionRate.toInt()}%',
+                                  AppColors.primary,
+                                  Icons.check_circle_outline,
+                                ),
+                              ),
+                              const SizedBox(
+                                  width: AppDimensions.paddingMedium),
+                              Expanded(
+                                child: _buildStatCard(
+                                  'Việc quá hạn',
+                                  '$_overdueTasks',
+                                  AppColors.error,
+                                  Icons.warning_outlined,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppDimensions.paddingMedium),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _buildStatCard(
+                                  'Điểm hiệu suất',
+                                  _performanceScore.toStringAsFixed(1),
+                                  const Color(0xFFFF9500),
+                                  Icons.star_outline,
+                                ),
+                              ),
+                              const SizedBox(
+                                  width: AppDimensions.paddingMedium),
+                              Expanded(
+                                child: _buildStatCard(
+                                  'Trạng thái',
+                                  statusText,
+                                  statusColor,
+                                  statusIcon,
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+
+                          // Job Classification Card
+                          _buildCard(
+                            title: 'Phân loại công việc',
+                            child: Column(
                               children: [
-                                Icon(
-                                  Icons.psychology_outlined,
-                                  color: AppColors.primary,
-                                  size: 24,
+                                SizedBox(
+                                  height: 200,
+                                  child: Center(
+                                    child: _buildDonutChart(),
+                                  ),
                                 ),
                                 const SizedBox(
-                                    width: AppDimensions.paddingSmall),
-                                Expanded(
-                                  child: Text(
-                                    'Đang phân tích dữ liệu...',
-                                    style: R.styles.body(
-                                      size: 14,
-                                      color: AppColors.grey,
-                                    ),
+                                    height: AppDimensions.paddingLarge),
+                                // Legend
+                                _categoryData.isEmpty
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(
+                                            AppDimensions.paddingLarge),
+                                        child: Center(
+                                          child: Text(
+                                            'Chưa có dữ liệu phân loại',
+                                            style: R.styles.body(
+                                              size: 14,
+                                              color: AppColors.grey,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: _categoryData.map((data) {
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                                bottom: AppDimensions
+                                                    .paddingMedium),
+                                            child: Row(
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.start,
+                                              children: [
+                                                Container(
+                                                  width: 12,
+                                                  height: 12,
+                                                  decoration: BoxDecoration(
+                                                    color: data.color,
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                ),
+                                                const SizedBox(
+                                                    width: AppDimensions
+                                                        .paddingSmall),
+                                                Text(
+                                                  '${data.name} (${data.percentage}%)',
+                                                  style: R.styles.body(
+                                                    size: 14,
+                                                    color: AppColors.black,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }).toList(),
+                                      ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+
+                          // Completed Tasks Card
+                          _buildCard(
+                            title: 'Công việc hoàn thành',
+                            child: SizedBox(
+                              height: 200,
+                              child: _buildBarChart(),
+                            ),
+                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+
+                          // Performance Trend Card
+                          _buildCard(
+                            title: 'Xu hướng hiệu suất',
+                            child: SizedBox(
+                              height: 200,
+                              child: _buildLineChart(),
+                            ),
+                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
+
+                          // AI Analysis Section
+                          _buildCard(
+                            title: 'Phân tích từ chuyên gia AI',
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(
+                                      AppDimensions.paddingMedium),
+                                  decoration: BoxDecoration(
+                                    color:
+                                        AppColors.primaryLight.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(
+                                        AppDimensions.borderRadiusMedium),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.psychology_outlined,
+                                        color: AppColors.primary,
+                                        size: 24,
+                                      ),
+                                      const SizedBox(
+                                          width: AppDimensions.paddingSmall),
+                                      Expanded(
+                                        child: Text(
+                                          'Đang phân tích dữ liệu...',
+                                          style: R.styles.body(
+                                            size: 14,
+                                            color: AppColors.grey,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(
+                                    height: AppDimensions.paddingMedium),
+                                Text(
+                                  'Nhấn để xem phân tích chi tiết',
+                                  style: R.styles.body(
+                                    size: 14,
+                                    color: AppColors.grey,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          const SizedBox(height: AppDimensions.paddingMedium),
-                          Text(
-                            'Nhấn để xem phân tích chi tiết',
-                            style: R.styles.body(
-                              size: 14,
-                              color: AppColors.grey,
-                            ),
-                          ),
+                          const SizedBox(height: AppDimensions.paddingLarge),
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-                  ],
-                ),
-              ),
             ),
           ],
         ),
@@ -298,6 +457,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         setState(() {
           _selectedPeriod = index;
         });
+        _loadStatistics(); // Reload data when period changes
       },
       child: Container(
         padding: const EdgeInsets.symmetric(
@@ -403,6 +563,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildDonutChart() {
+    if (_categoryData.isEmpty) {
+      return Center(
+        child: Text(
+          'Chưa có dữ liệu',
+          style: R.styles.body(
+            size: 14,
+            color: AppColors.grey,
+          ),
+        ),
+      );
+    }
+
     return Stack(
       alignment: Alignment.center,
       children: [
@@ -410,7 +582,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           PieChartData(
             sectionsSpace: 0,
             centerSpaceRadius: 70,
-            sections: categoryData.map((data) {
+            sections: _categoryData.map((data) {
               return PieChartSectionData(
                 value: data.percentage.toDouble(),
                 color: data.color,
@@ -424,7 +596,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '$totalTasks',
+              '$_totalTasks',
               style: R.styles.heading1(
                 color: AppColors.black,
                 weight: FontWeight.w900,
@@ -444,13 +616,26 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildBarChart() {
+    if (_weeklyData.isEmpty) {
+      return Center(
+        child: Text(
+          'Chưa có dữ liệu',
+          style: R.styles.body(
+            size: 14,
+            color: AppColors.grey,
+          ),
+        ),
+      );
+    }
+
     final maxValue =
-        weeklyData.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+        _weeklyData.map((e) => e.value).reduce((a, b) => a > b ? a : b);
+    final todayIndex = DateTime.now().weekday - 1; // 0 = Monday, 6 = Sunday
 
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
-        maxY: maxValue * 1.2,
+        maxY: maxValue > 0 ? maxValue * 1.2 : 10,
         barTouchData: BarTouchData(enabled: false),
         titlesData: FlTitlesData(
           show: true,
@@ -459,12 +644,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               showTitles: true,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index >= 0 && index < weeklyData.length) {
-                  final isCurrentDay = index == 2; // T4 is current day
+                if (index >= 0 && index < _weeklyData.length) {
+                  final isCurrentDay = index == todayIndex;
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      weeklyData[index].day,
+                      _weeklyData[index].day,
                       style: R.styles.body(
                         size: 12,
                         weight:
@@ -492,10 +677,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
         gridData: FlGridData(show: false),
         borderData: FlBorderData(show: false),
-        barGroups: weeklyData.asMap().entries.map((entry) {
+        barGroups: _weeklyData.asMap().entries.map((entry) {
           final index = entry.key;
           final data = entry.value;
-          final isHighlighted = index == 2; // T4 is highlighted
+          final isHighlighted = index == todayIndex;
           return BarChartGroupData(
             x: index,
             barRods: [
@@ -516,8 +701,21 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildLineChart() {
-    final maxValue = performanceTrend.reduce((a, b) => a > b ? a : b);
-    final minValue = performanceTrend.reduce((a, b) => a < b ? a : b);
+    if (_performanceTrend.isEmpty) {
+      return Center(
+        child: Text(
+          'Chưa có dữ liệu',
+          style: R.styles.body(
+            size: 14,
+            color: AppColors.grey,
+          ),
+        ),
+      );
+    }
+
+    final maxValue = _performanceTrend.reduce((a, b) => a > b ? a : b);
+    final minValue = _performanceTrend.reduce((a, b) => a < b ? a : b);
+    final daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
     return LineChart(
       LineChartData(
@@ -539,11 +737,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
               showTitles: true,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index >= 0 && index < weeklyData.length) {
+                if (index >= 0 && index < daysOfWeek.length) {
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
-                      weeklyData[index].day,
+                      daysOfWeek[index],
                       style: R.styles.body(
                         size: 12,
                         color: AppColors.grey,
@@ -574,11 +772,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         ),
         minX: 0,
         maxX: 6,
-        minY: minValue - 1,
-        maxY: maxValue + 1,
+        minY: minValue > 0 ? minValue - 1 : 0,
+        maxY: maxValue > 0 ? maxValue + 1 : 10,
         lineBarsData: [
           LineChartBarData(
-            spots: performanceTrend.asMap().entries.map((entry) {
+            spots: _performanceTrend.asMap().entries.map((entry) {
               return FlSpot(entry.key.toDouble(), entry.value);
             }).toList(),
             isCurved: true,

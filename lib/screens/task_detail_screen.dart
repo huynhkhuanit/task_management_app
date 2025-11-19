@@ -26,7 +26,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   late Task _task;
   String? _categoryName;
   bool _isLoading = true;
-  final List<SubTask> _subTasks = [];
+  List<SubTask> _subTasks = [];
   final List<Attachment> _attachments = [];
 
   @override
@@ -57,13 +57,23 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         }
       }
 
-      // TODO: Load subtasks from database
+      // Load subtasks from database
+      final subtasksData = await _taskService.getSubtasks(updatedTask.id);
+      final subtasks = subtasksData.map((json) {
+        return SubTask(
+          id: json['id'] as String,
+          title: json['title'] as String,
+          isCompleted: json['is_completed'] as bool? ?? false,
+        );
+      }).toList();
+
       // TODO: Load attachments from database
 
       if (mounted) {
         setState(() {
           _task = updatedTask;
           _categoryName = categoryName;
+          _subTasks = subtasks;
           _isLoading = false;
         });
       }
@@ -692,10 +702,29 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         children: [
           Checkbox(
             value: subTask.isCompleted,
-            onChanged: (value) {
+            onChanged: (value) async {
+              final newValue = value ?? false;
               setState(() {
-                subTask.isCompleted = value ?? false;
+                subTask.isCompleted = newValue;
               });
+              // Update subtask status in database
+              try {
+                await _taskService.updateSubtaskStatus(subTask.id, newValue);
+              } catch (e) {
+                // Revert on error
+                if (mounted) {
+                  setState(() {
+                    subTask.isCompleted = !newValue;
+                  });
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content:
+                          Text('Lỗi cập nhật công việc con: ${e.toString()}'),
+                      backgroundColor: AppColors.error,
+                    ),
+                  );
+                }
+              }
             },
             activeColor: AppColors.primary,
             checkColor: AppColors.white,
@@ -891,10 +920,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
 // Helper classes
 class SubTask {
+  final String id;
   String title;
   bool isCompleted;
 
   SubTask({
+    required this.id,
     required this.title,
     required this.isCompleted,
   });

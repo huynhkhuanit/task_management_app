@@ -809,13 +809,22 @@ class _AddTaskScreenState extends State<AddTaskScreen> {
                       ),
                       child: Column(
                         children: [
-                          if (_subTasks.isEmpty) ...[
-                            _buildSubTaskItem(
-                                'Công việc con đầu tiên', false, 0,
-                                isDefault: true),
-                            _buildSubTaskItem('Công việc con thứ hai', false, 1,
-                                isDefault: true),
-                          ] else
+                          if (_subTasks.isEmpty)
+                            Padding(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingLarge,
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Chưa có công việc con',
+                                  style: R.styles.body(
+                                    size: 14,
+                                    color: AppColors.grey,
+                                  ),
+                                ),
+                              ),
+                            )
+                          else
                             ...List.generate(_subTasks.length, (index) {
                               return _buildSubTaskItem(
                                 _subTasks[index],

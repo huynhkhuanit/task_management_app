@@ -338,4 +338,40 @@ class TaskService {
       throw Exception('Lỗi tạo subtasks: ${e.toString()}');
     }
   }
+
+  /// Lấy subtasks của một task
+  Future<List<Map<String, dynamic>>> getSubtasks(String taskId) async {
+    try {
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('Chưa đăng nhập');
+
+      // Verify task belongs to user (RLS will handle security)
+      await getTaskById(taskId);
+
+      final response = await _client
+          .from('subtasks')
+          .select()
+          .eq('task_id', taskId)
+          .order('display_order', ascending: true);
+
+      return (response as List).cast<Map<String, dynamic>>();
+    } catch (e) {
+      throw Exception('Lỗi lấy subtasks: ${e.toString()}');
+    }
+  }
+
+  /// Cập nhật trạng thái subtask
+  Future<void> updateSubtaskStatus(String subtaskId, bool isCompleted) async {
+    try {
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('Chưa đăng nhập');
+
+      await _client
+          .from('subtasks')
+          .update({'is_completed': isCompleted})
+          .eq('id', subtaskId);
+    } catch (e) {
+      throw Exception('Lỗi cập nhật subtask: ${e.toString()}');
+    }
+  }
 }
