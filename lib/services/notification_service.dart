@@ -31,9 +31,11 @@ class NotificationService {
         query = query.eq('is_read', isRead) as dynamic;
       }
       
+      // Tối ưu: Giảm default limit từ 1000 xuống 100 để cải thiện performance
+      // Có thể mở rộng thêm pagination sau này
       final response = await query
           .order('created_at', ascending: false)
-          .limit(limit ?? 1000);
+          .limit(limit ?? 100);
       return (response as List)
           .map((json) => _notificationFromJson(json))
           .toList();
@@ -43,11 +45,13 @@ class NotificationService {
   }
   
   /// Lấy số lượng notifications chưa đọc
+  /// Tối ưu: Chỉ select id và đếm trong memory (tốt hơn select all fields)
   Future<int> getUnreadCount() async {
     try {
       final userId = SupabaseService.currentUserId;
       if (userId == null) throw Exception('Chưa đăng nhập');
       
+      // Tối ưu: Chỉ select id thay vì select tất cả fields
       final response = await _client
           .from('notifications')
           .select('id')

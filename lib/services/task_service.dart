@@ -180,13 +180,17 @@ class TaskService {
         // Các notifications sẽ được tự động kiểm tra khi load notifications screen
         
         // Nếu due_date hoặc status thay đổi, kiểm tra lại notifications
+        // Tối ưu: Loại bỏ Future.delayed - Supabase đảm bảo consistency sau khi update
+        // Notifications sẽ được check trong background khi cần thiết
         if (dueDate != null || status != null) {
-          // Chờ một chút để đảm bảo database đã được cập nhật
-          await Future.delayed(const Duration(milliseconds: 100));
-          
-          // Kiểm tra lại overdue và upcoming notifications
-          await notificationService.checkAndCreateOverdueNotifications();
-          await notificationService.checkAndCreateUpcomingNotifications();
+          // Chạy async trong background để không block UI
+          // Không cần delay vì Supabase đảm bảo transaction consistency
+          notificationService.checkAndCreateOverdueNotifications().catchError((e) {
+            debugPrint('Lỗi check overdue notifications: ${e.toString()}');
+          });
+          notificationService.checkAndCreateUpcomingNotifications().catchError((e) {
+            debugPrint('Lỗi check upcoming notifications: ${e.toString()}');
+          });
         }
       } catch (e) {
         // Log nhưng không fail task update

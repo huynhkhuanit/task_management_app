@@ -34,17 +34,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     });
 
     try {
-      // Kiểm tra và tạo notifications mới trước khi load
-      // Điều này đảm bảo các notifications cho overdue/upcoming tasks được tạo tự động
-      try {
-        await _notificationService.checkAndCreateOverdueNotifications();
-        await _notificationService.checkAndCreateUpcomingNotifications();
-      } catch (e) {
-        // Log nhưng không fail - đây là background check
-        debugPrint('Lỗi kiểm tra notifications: ${e.toString()}');
-      }
+      // Tối ưu: Chạy check notifications song song với load để không block UI
+      // Kiểm tra và tạo notifications mới trong background
+      _notificationService.checkAndCreateOverdueNotifications().catchError((e) {
+        debugPrint('Lỗi kiểm tra overdue notifications: ${e.toString()}');
+      });
+      _notificationService
+          .checkAndCreateUpcomingNotifications()
+          .catchError((e) {
+        debugPrint('Lỗi kiểm tra upcoming notifications: ${e.toString()}');
+      });
 
-      // Load notifications từ database
+      // Load notifications từ database (không cần đợi check notifications)
       final notifications = await _notificationService.getNotifications();
       if (mounted) {
         setState(() {

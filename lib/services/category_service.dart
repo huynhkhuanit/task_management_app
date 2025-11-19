@@ -24,25 +24,39 @@ class CategoryService {
           .map((json) => _categoryFromJson(json))
           .toList();
       
-      // Load task count for each category
-      final categoriesWithCount = <Category>[];
-      for (var category in categories) {
-        try {
-          final taskCountResponse = await _client
-              .from('tasks')
-              .select('id')
-              .eq('user_id', userId)
-              .eq('category_id', category.id);
-          
-          final taskCount = (taskCountResponse as List).length;
-          categoriesWithCount.add(category.copyWith(taskCount: taskCount));
-        } catch (e) {
-          // If error, keep taskCount as 0
-          categoriesWithCount.add(category);
-        }
+      // Tối ưu: Load task count cho tất cả categories trong một query duy nhất
+      // Thay vì N+1 queries, chỉ cần 1 query để lấy tất cả task counts
+      if (categories.isEmpty) {
+        return categories;
       }
       
-      return categoriesWithCount;
+      try {
+        // Lấy tất cả tasks với category_id để đếm
+        final allTasksResponse = await _client
+            .from('tasks')
+            .select('category_id')
+            .eq('user_id', userId);
+        
+        // Đếm tasks theo category_id
+        final taskCountMap = <String, int>{};
+        for (var task in (allTasksResponse as List)) {
+          final categoryId = task['category_id'] as String?;
+          if (categoryId != null) {
+            taskCountMap[categoryId] = (taskCountMap[categoryId] ?? 0) + 1;
+          }
+        }
+        
+        // Map task counts vào categories
+        final categoriesWithCount = categories.map((category) {
+          final taskCount = taskCountMap[category.id] ?? 0;
+          return category.copyWith(taskCount: taskCount);
+        }).toList();
+        
+        return categoriesWithCount;
+      } catch (e) {
+        // Nếu có lỗi, trả về categories với taskCount = 0
+        return categories;
+      }
     } catch (e) {
       throw Exception('Lỗi lấy danh sách categories: ${e.toString()}');
     }
@@ -156,11 +170,15 @@ class CategoryService {
   }
   
   /// Cập nhật thứ tự categories
+  /// Tối ưu: Có thể batch update nhưng Supabase không hỗ trợ batch update trực tiếp
+  /// Nên giữ nguyên nhưng có thể tối ưu bằng cách dùng transaction hoặc rpc function
   Future<void> reorderCategories(List<String> categoryIds) async {
     try {
       final userId = SupabaseService.currentUserId;
       if (userId == null) throw Exception('Chưa đăng nhập');
       
+      // Tối ưu: Update tuần tự nhưng có thể cải thiện bằng cách dùng RPC function
+      // Hoặc có thể batch trong một transaction nếu Supabase hỗ trợ
       for (int i = 0; i < categoryIds.length; i++) {
         await _client
             .from('categories')
