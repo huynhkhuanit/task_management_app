@@ -5,6 +5,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../services/task_service.dart';
 import '../services/category_service.dart';
+import '../services/ai_analysis_service.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({Key? key}) : super(key: key);
@@ -14,9 +15,10 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   final _taskService = TaskService();
   final _categoryService = CategoryService();
+  final _aiAnalysisService = AIAnalysisService();
 
   int _selectedPeriod = 1; // 0: Tuần, 1: Tháng, 2: Năm
   bool _isLoading = true;
@@ -31,16 +33,37 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   List<BarData> _weeklyData = [];
   List<double> _performanceTrend = [];
 
+  // AI Analysis state
+  String _aiAnalysis = '';
+  bool _isAnalyzing = false;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    // Initialize animation controller
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat();
+
+    _animation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeInOut,
+      ),
+    );
+
     _loadStatistics();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _animationController.dispose();
     super.dispose();
   }
 
@@ -79,17 +102,18 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       // Calculate statistics based on filtered tasks
       _totalTasks = filteredTasks.length;
 
-      // Count completed tasks - show ALL completed tasks in donut chart
-      // The donut chart shows total completed tasks regardless of period filter
-      final completedTasks =
-          allTasks.where((t) => t.status == TaskStatus.completed).length;
+      // Count completed tasks trong filtered period để đảm bảo tính toán đúng
+      // Tối ưu: Sử dụng filteredTasks thay vì allTasks để đảm bảo completion rate chính xác
+      final completedTasksInPeriod =
+          filteredTasks.where((t) => t.status == TaskStatus.completed).length;
 
       _overdueTasks = filteredOverdueTasks.length;
-      _completedTasks = completedTasks;
+      _completedTasks = completedTasksInPeriod;
 
-      // Calculate completion rate
-      _completionRate =
-          _totalTasks > 0 ? (completedTasks / _totalTasks) * 100 : 0.0;
+      // Calculate completion rate - đảm bảo không vượt quá 100%
+      _completionRate = _totalTasks > 0
+          ? ((completedTasksInPeriod / _totalTasks) * 100).clamp(0.0, 100.0)
+          : 0.0;
 
       // Calculate performance score (0-10 scale)
       // Based on completion rate and overdue tasks penalty
@@ -122,32 +146,72 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         }
       }
 
+      // Tính toán percentage và đảm bảo tổng không vượt quá 100%
+      // Cải thiện: Tính tất cả percentage trước, sau đó làm tròn và điều chỉnh để tổng chính xác
       int colorIndex = 0;
+      final List<Map<String, dynamic>> tempData = [];
+
+      // Thu thập tất cả dữ liệu với percentage chưa làm tròn
       for (var category in categories) {
         final count = categoryMap[category.id] ?? 0;
         if (count > 0) {
           final percentage =
-              _totalTasks > 0 ? ((count / _totalTasks) * 100).round() : 0;
-          _categoryData.add(CategoryData(
-            name: category.name,
-            count: count,
-            percentage: percentage,
-            color: categoryColors[colorIndex % categoryColors.length],
-          ));
+              _totalTasks > 0 ? (count / _totalTasks) * 100 : 0.0;
+          tempData.add({
+            'name': category.name,
+            'count': count,
+            'percentage': percentage,
+            'color': categoryColors[colorIndex % categoryColors.length],
+          });
           colorIndex++;
         }
       }
 
-      // Add "Không có danh mục" if there are tasks without category
+      // Thêm "Không có danh mục" nếu có
       if (noCategoryCount > 0) {
-        final noCategoryPercentage = _totalTasks > 0
-            ? ((noCategoryCount / _totalTasks) * 100).round()
-            : 0;
+        final percentage =
+            _totalTasks > 0 ? (noCategoryCount / _totalTasks) * 100 : 0.0;
+        tempData.add({
+          'name': 'Không có danh mục',
+          'count': noCategoryCount,
+          'percentage': percentage,
+          'color': AppColors.grey,
+        });
+      }
+
+      // Làm tròn và đảm bảo tổng không vượt quá 100%
+      if (tempData.isNotEmpty) {
+        int totalRounded = 0;
+
+        // Làm tròn tất cả trừ item cuối cùng
+        for (int i = 0; i < tempData.length - 1; i++) {
+          final data = tempData[i];
+          // Tính phần còn lại có thể dùng
+          final remaining = 100 - totalRounded;
+          // Làm tròn nhưng không vượt quá phần còn lại
+          final rounded =
+              ((data['percentage'] as double).round()).clamp(0, remaining);
+          totalRounded += rounded;
+
+          _categoryData.add(CategoryData(
+            name: data['name'] as String,
+            count: data['count'] as int,
+            percentage: rounded,
+            color: data['color'] as Color,
+          ));
+        }
+
+        // Item cuối cùng: điều chỉnh để tổng không vượt quá 100%
+        final lastData = tempData.last;
+        final remaining = (100 - totalRounded).clamp(0, 100);
+        final lastPercentage =
+            ((lastData['percentage'] as double).round()).clamp(0, remaining);
+
         _categoryData.add(CategoryData(
-          name: 'Không có danh mục',
-          count: noCategoryCount,
-          percentage: noCategoryPercentage,
-          color: AppColors.grey,
+          name: lastData['name'] as String,
+          count: lastData['count'] as int,
+          percentage: lastPercentage,
+          color: lastData['color'] as Color,
         ));
       }
 
@@ -156,6 +220,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
       // Calculate performance trend based on period - use allTasks to include all tasks
       _calculatePerformanceTrend(allTasks);
+
+      // Gọi AI phân tích dữ liệu
+      _loadAIAnalysis();
 
       if (mounted) {
         setState(() {
@@ -166,6 +233,55 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       if (mounted) {
         setState(() {
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Gọi AI để phân tích dữ liệu thống kê
+  Future<void> _loadAIAnalysis() async {
+    if (mounted) {
+      setState(() {
+        _isAnalyzing = true;
+        _aiAnalysis = '';
+      });
+      _animationController.repeat();
+    }
+
+    try {
+      // Chuẩn bị dữ liệu thống kê
+      final periodNames = ['Tuần', 'Tháng', 'Năm'];
+      final categoryDistribution = <String, dynamic>{};
+      for (var category in _categoryData) {
+        categoryDistribution[category.name] = category.percentage;
+      }
+
+      final statistics = {
+        'period': periodNames[_selectedPeriod],
+        'completionRate': _completionRate,
+        'totalTasks': _totalTasks,
+        'completedTasks': _completedTasks,
+        'overdueTasks': _overdueTasks,
+        'performanceScore': _performanceScore,
+        'categoryDistribution': categoryDistribution,
+      };
+
+      // Gọi AI service
+      final analysis = await _aiAnalysisService.analyzeStatistics(statistics);
+
+      if (mounted) {
+        setState(() {
+          _aiAnalysis = analysis;
+          _isAnalyzing = false;
+          _animationController.stop();
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isAnalyzing = false;
+          _aiAnalysis = 'Không thể tải phân tích AI. Vui lòng thử lại sau.';
+          _animationController.stop();
         });
       }
     }
@@ -525,7 +641,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                               Expanded(
                                 child: _buildStatCard(
                                   'Tỷ lệ hoàn thành',
-                                  '${_completionRate.toInt()}%',
+                                  '${_completionRate.clamp(0.0, 100.0).toInt()}%',
                                   AppColors.primary,
                                   Icons.check_circle_outline,
                                 ),
@@ -656,53 +772,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                           const SizedBox(height: AppDimensions.paddingLarge),
 
                           // AI Analysis Section
-                          _buildCard(
-                            title: 'Phân tích từ chuyên gia AI',
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(
-                                      AppDimensions.paddingMedium),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        AppColors.primaryLight.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(
-                                        AppDimensions.borderRadiusMedium),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(
-                                        Icons.psychology_outlined,
-                                        color: AppColors.primary,
-                                        size: 24,
-                                      ),
-                                      const SizedBox(
-                                          width: AppDimensions.paddingSmall),
-                                      Expanded(
-                                        child: Text(
-                                          'Đang phân tích dữ liệu...',
-                                          style: R.styles.body(
-                                            size: 14,
-                                            color: AppColors.grey,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(
-                                    height: AppDimensions.paddingMedium),
-                                Text(
-                                  'Nhấn để xem phân tích chi tiết',
-                                  style: R.styles.body(
-                                    size: 14,
-                                    color: AppColors.grey,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                          _buildAIAnalysisCard(),
                           const SizedBox(height: AppDimensions.paddingLarge),
                         ],
                       ),
@@ -792,6 +862,141 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ],
       ),
     );
+  }
+
+  /// Widget hiển thị phân tích AI với animation
+  Widget _buildAIAnalysisCard() {
+    return _buildCard(
+      title: 'Phân tích từ chuyên gia AI',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (_isAnalyzing)
+            // Animation "Phân tích dữ liệu"
+            AnimatedBuilder(
+              animation: _animation,
+              builder: (context, child) {
+                return Container(
+                  padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryLight.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(
+                      AppDimensions.borderRadiusMedium,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      RotationTransition(
+                        turns: _animation,
+                        child: Icon(
+                          Icons.psychology_outlined,
+                          color: AppColors.primary,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: AppDimensions.paddingSmall),
+                      Expanded(
+                        child: Text(
+                          'Phân tích dữ liệu${_getLoadingDots()}',
+                          style: R.styles.body(
+                            size: 14,
+                            color: AppColors.primary,
+                            weight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            )
+          else if (_aiAnalysis.isNotEmpty)
+            // Hiển thị kết quả phân tích
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+              decoration: BoxDecoration(
+                color: AppColors.greyLight.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(
+                  AppDimensions.borderRadiusMedium,
+                ),
+                border: Border.all(
+                  color: AppColors.primaryLight.withOpacity(0.3),
+                  width: 1,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.psychology,
+                        color: AppColors.primary,
+                        size: 20,
+                      ),
+                      const SizedBox(width: AppDimensions.paddingSmall),
+                      Text(
+                        'Phân tích chuyên sâu',
+                        style: R.styles.body(
+                          size: 14,
+                          weight: FontWeight.w600,
+                          color: AppColors.black,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppDimensions.paddingMedium),
+                  Text(
+                    _aiAnalysis,
+                    style: R.styles
+                        .body(
+                          size: 14,
+                          color: AppColors.greyDark,
+                        )
+                        .copyWith(height: 1.6),
+                  ),
+                ],
+              ),
+            )
+          else
+            // Empty state
+            Container(
+              padding: const EdgeInsets.all(AppDimensions.paddingMedium),
+              decoration: BoxDecoration(
+                color: AppColors.primaryLight.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(
+                  AppDimensions.borderRadiusMedium,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.psychology_outlined,
+                    color: AppColors.primary,
+                    size: 24,
+                  ),
+                  const SizedBox(width: AppDimensions.paddingSmall),
+                  Expanded(
+                    child: Text(
+                      'Đang tải phân tích...',
+                      style: R.styles.body(
+                        size: 14,
+                        color: AppColors.grey,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Tạo loading dots animation
+  String _getLoadingDots() {
+    final dotCount = ((_animation.value * 3).floor() % 4);
+    return '.' * dotCount;
   }
 
   Widget _buildCard({required String title, required Widget child}) {
