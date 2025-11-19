@@ -26,6 +26,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
   int _overdueTasks = 0;
   double _performanceScore = 0.0;
   int _totalTasks = 0;
+  int _completedTasks = 0;
   List<CategoryData> _categoryData = [];
   List<BarData> _weeklyData = [];
   List<double> _performanceTrend = [];
@@ -78,34 +79,13 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       // Calculate statistics based on filtered tasks
       _totalTasks = filteredTasks.length;
 
-      // Count completed tasks - use all tasks, not filtered by period for completion count
-      // But only count those that were created/completed within the period
-      final completedTasks = allTasks.where((t) {
-        if (t.status != TaskStatus.completed) return false;
-        // Check if task was created or completed within the period
-        final taskDate = t.dueDate ?? t.time;
-        final now = DateTime.now();
-        DateTime startDate;
-        switch (_selectedPeriod) {
-          case 0: // Tuần
-            final weekStart = now.subtract(Duration(days: now.weekday - 1));
-            startDate =
-                DateTime(weekStart.year, weekStart.month, weekStart.day);
-            break;
-          case 1: // Tháng
-            startDate = DateTime(now.year, now.month, 1);
-            break;
-          case 2: // Năm
-            startDate = DateTime(now.year, 1, 1);
-            break;
-          default:
-            startDate = DateTime(now.year, now.month, 1);
-        }
-        return taskDate.isAfter(startDate.subtract(const Duration(days: 1))) &&
-            taskDate.isBefore(now.add(const Duration(days: 1)));
-      }).length;
+      // Count completed tasks - show ALL completed tasks in donut chart
+      // The donut chart shows total completed tasks regardless of period filter
+      final completedTasks =
+          allTasks.where((t) => t.status == TaskStatus.completed).length;
 
       _overdueTasks = filteredOverdueTasks.length;
+      _completedTasks = completedTasks;
 
       // Calculate completion rate
       _completionRate =
@@ -829,14 +809,14 @@ class _StatisticsScreenState extends State<StatisticsScreen>
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              '$_totalTasks',
+              '$_completedTasks',
               style: R.styles.heading1(
                 color: AppColors.black,
                 weight: FontWeight.w900,
               ),
             ),
             Text(
-              'Công việc',
+              'Đã hoàn thành',
               style: R.styles.body(
                 size: 14,
                 color: AppColors.grey,
