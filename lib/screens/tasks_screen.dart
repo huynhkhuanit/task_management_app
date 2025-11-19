@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../utils/navigation_helper.dart';
+import '../services/task_service.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
 import 'profile_screen.dart';
@@ -26,65 +27,22 @@ class _TasksScreenState extends State<TasksScreen> {
   int _selectedCategoryIndex = 0; // "Tất cả" is selected
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
+  final _taskService = TaskService();
 
   // Filter states
   Set<TaskPriority> _selectedPriorities = {};
   Set<TaskStatus> _selectedStatuses = {};
   String? _selectedProject;
 
+  // Tasks from database
+  List<Task> _allTasks = [];
+  bool _isLoading = true;
+
   final List<String> _categories = [
     'Tất cả',
     'Hôm nay',
     'Sắp tới',
     'Hoàn thành'
-  ];
-
-  // Sample tasks matching the image
-  final List<Task> _allTasks = [
-    Task(
-      id: '1',
-      title: 'Thiết kế giao diện màn hình All Tasks',
-      project: 'Project X',
-      time: DateTime.now(),
-      dueDate: DateTime.now().copyWith(hour: 17, minute: 0),
-      status: TaskStatus.pending,
-      priority: TaskPriority.high,
-      tags: ['Ưu tiên cao', 'Project X'],
-    ),
-    Task(
-      id: '2',
-      title: 'Hoàn thành báo cáo tuần',
-      project: 'Báo cáo',
-      time: DateTime.now().add(const Duration(days: 1)),
-      dueDate: DateTime.now()
-          .add(const Duration(days: 1))
-          .copyWith(hour: 11, minute: 0),
-      status: TaskStatus.pending,
-      priority: TaskPriority.medium,
-      tags: ['Ưu tiên trung bình', 'Báo cáo'],
-    ),
-    Task(
-      id: '3',
-      title: 'Sửa lỗi đăng nhập trên iOS',
-      project: 'Project Y',
-      time: DateTime(2023, 12, 25),
-      dueDate: DateTime(2023, 12, 25),
-      status: TaskStatus.pending,
-      priority: TaskPriority.urgent,
-      tags: ['Khẩn cấp', 'Project Y'],
-    ),
-    Task(
-      id: '4',
-      title: 'Lên kế hoạch cho quý 1/2024',
-      project: 'Kế hoạch',
-      time: DateTime.now().subtract(const Duration(days: 1)),
-      dueDate: DateTime.now()
-          .subtract(const Duration(days: 1))
-          .copyWith(hour: 9, minute: 0),
-      status: TaskStatus.pending,
-      priority: TaskPriority.low,
-      tags: ['Ưu tiên thấp', 'Kế hoạch'],
-    ),
   ];
 
   List<Task> get _filteredTasks {
@@ -141,7 +99,8 @@ class _TasksScreenState extends State<TasksScreen> {
       tasks = tasks
           .where((task) =>
               task.title.toLowerCase().contains(query) ||
-              task.project.toLowerCase().contains(query))
+              (task.project.isNotEmpty &&
+                  task.project.toLowerCase().contains(query)))
           .toList();
     }
 
@@ -149,7 +108,11 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   List<String> get _availableProjects {
-    return _allTasks.map((task) => task.project).toSet().toList();
+    return _allTasks
+        .map((task) => task.project)
+        .where((project) => project.isNotEmpty)
+        .toSet()
+        .toList();
   }
 
   bool get _hasActiveFilters {
@@ -260,6 +223,31 @@ class _TasksScreenState extends State<TasksScreen> {
     _searchFocusNode.addListener(() {
       setState(() {}); // Update UI when focus changes
     });
+    _loadTasks();
+  }
+
+  Future<void> _loadTasks() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final tasks = await _taskService.getTasks();
+
+      if (mounted) {
+        setState(() {
+          _allTasks = tasks;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        // Silently handle error - UI will show empty state
+      }
+    }
   }
 
   @override
@@ -328,7 +316,8 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
               ListTile(
                 contentPadding: EdgeInsets.zero,
-                leading: const Icon(Icons.category_outlined, color: AppColors.primary),
+                leading: const Icon(Icons.category_outlined,
+                    color: AppColors.primary),
                 title: Text(
                   'Quản lý danh mục',
                   style: R.styles.body(
@@ -616,17 +605,58 @@ class _TasksScreenState extends State<TasksScreen> {
               ),
               // Task List
               Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppDimensions.paddingLarge,
-                    vertical: AppDimensions.paddingMedium,
-                  ),
-                  itemCount: _filteredTasks.length,
-                  itemBuilder: (context, index) {
-                    final task = _filteredTasks[index];
-                    return _buildTaskCard(task);
-                  },
-                ),
+                child: _isLoading
+                    ? const Center(
+                        child: CircularProgressIndicator(
+                          color: AppColors.primary,
+                        ),
+                      )
+                    : _filteredTasks.isEmpty
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(
+                                AppDimensions.paddingXLarge,
+                              ),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.task_outlined,
+                                    size: 64,
+                                    color: AppColors.grey.withOpacity(0.4),
+                                  ),
+                                  const SizedBox(
+                                      height: AppDimensions.paddingLarge),
+                                  Text(
+                                    _selectedCategoryIndex == 1
+                                        ? 'Không có công việc nào hôm nay'
+                                        : _selectedCategoryIndex == 2
+                                            ? 'Không có công việc sắp tới'
+                                            : _selectedCategoryIndex == 3
+                                                ? 'Chưa có công việc hoàn thành'
+                                                : 'Chưa có công việc nào',
+                                    style: R.styles.body(
+                                      size: 16,
+                                      color: AppColors.grey,
+                                      weight: FontWeight.w400,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: AppDimensions.paddingLarge,
+                              vertical: AppDimensions.paddingMedium,
+                            ),
+                            itemCount: _filteredTasks.length,
+                            itemBuilder: (context, index) {
+                              final task = _filteredTasks[index];
+                              return _buildTaskCard(task);
+                            },
+                          ),
               ),
             ],
           ),
@@ -646,11 +676,13 @@ class _TasksScreenState extends State<TasksScreen> {
       floatingActionButton: widget.showBottomNavigationBar
           ? FloatingActionButton(
               heroTag: 'tasks_screen_fab',
-              onPressed: () {
-                NavigationHelper.pushSlideTransition(
+              onPressed: () async {
+                await NavigationHelper.pushSlideTransition(
                   context,
                   const AddTaskScreen(),
                 );
+                // Reload tasks when returning from AddTaskScreen
+                _loadTasks();
               },
               backgroundColor: AppColors.primary,
               elevation: 0,
@@ -1021,11 +1053,13 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildTaskCard(Task task) {
     return InkWell(
-      onTap: () {
-        NavigationHelper.pushSlideTransition(
+      onTap: () async {
+        await NavigationHelper.pushSlideTransition(
           context,
           TaskDetailScreen(task: task),
         );
+        // Reload tasks when returning from TaskDetailScreen (task might have been updated/deleted)
+        _loadTasks();
       },
       borderRadius: BorderRadius.circular(AppDimensions.borderRadiusLarge),
       child: Container(

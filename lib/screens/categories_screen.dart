@@ -4,6 +4,7 @@ import '../res/fonts/font_resources.dart';
 import '../models/category_model.dart';
 import '../widgets/bottom_navigation_bar.dart';
 import '../utils/navigation_helper.dart';
+import '../services/category_service.dart';
 import 'add_category_screen.dart';
 
 class CategoriesScreen extends StatefulWidget {
@@ -21,51 +22,49 @@ class CategoriesScreen extends StatefulWidget {
 }
 
 class _CategoriesScreenState extends State<CategoriesScreen> {
-  late List<Category> _categories;
+  final _categoryService = CategoryService();
+  List<Category> _categories = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _categories = [
-      Category(
-        id: '1',
-        name: 'Công việc',
-        icon: Icons.work_outline,
-        color: AppColors.primary,
-        taskCount: 10,
-        order: 0,
-      ),
-      Category(
-        id: '2',
-        name: 'Học tập',
-        icon: Icons.school_outlined,
-        color: const Color(0xFF10B981),
-        taskCount: 8,
-        order: 1,
-      ),
-      Category(
-        id: '3',
-        name: 'Cá nhân',
-        icon: Icons.person_outline,
-        color: const Color(0xFF8B5CF6),
-        taskCount: 5,
-        order: 2,
-      ),
-      Category(
-        id: '4',
-        name: 'Mua sắm',
-        icon: Icons.shopping_cart_outlined,
-        color: const Color(0xFFFF9500),
-        taskCount: 12,
-        order: 3,
-      ),
-    ];
+    _loadCategories();
   }
 
-  void _reorderCategories(int oldIndex, int newIndex) {
+  Future<void> _loadCategories() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      final categories = await _categoryService.getCategories();
+
+      // Note: Task count is set to 0 as Task model doesn't include categoryId
+      // This can be updated later when Task model includes categoryId field
+
+      if (mounted) {
+        setState(() {
+          _categories = categories;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        // Silently handle error - UI will show empty state
+      }
+    }
+  }
+
+  Future<void> _reorderCategories(int oldIndex, int newIndex) async {
     if (newIndex > oldIndex) {
       newIndex -= 1;
     }
+
+    // Update local state immediately for better UX
     setState(() {
       final item = _categories.removeAt(oldIndex);
       _categories.insert(newIndex, item);
@@ -74,6 +73,23 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
         _categories[i] = _categories[i].copyWith(order: i);
       }
     });
+
+    // Update order in database
+    try {
+      final categoryIds = _categories.map((c) => c.id).toList();
+      await _categoryService.reorderCategories(categoryIds);
+    } catch (e) {
+      // Reload on error to sync with database
+      _loadCategories();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi sắp xếp lại danh mục: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _showAddCategoryDialog() async {
@@ -83,11 +99,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        _categories.add(
-          result.copyWith(order: _categories.length),
-        );
-      });
+      // Reload categories from database to get the newly created category
+      await _loadCategories();
     }
   }
 
@@ -122,13 +135,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                 );
 
                 if (result != null) {
-                  setState(() {
-                    final index =
-                        _categories.indexWhere((c) => c.id == category.id);
-                    if (index != -1) {
-                      _categories[index] = result;
-                    }
-                  });
+                  // Reload categories from database
+                  await _loadCategories();
                 }
               },
             ),
@@ -141,11 +149,30 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
                   color: AppColors.error,
                 ),
               ),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                setState(() {
-                  _categories.removeWhere((c) => c.id == category.id);
-                });
+                try {
+                  await _categoryService.deleteCategory(category.id);
+                  // Reload categories from database
+                  await _loadCategories();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Đã xóa danh mục'),
+                        backgroundColor: AppColors.success,
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi xóa danh mục: ${e.toString()}'),
+                        backgroundColor: AppColors.error,
+                      ),
+                    );
+                  }
+                }
               },
             ),
           ],
@@ -168,12 +195,8 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
     );
 
     if (result != null) {
-      setState(() {
-        final index = _categories.indexWhere((c) => c.id == category.id);
-        if (index != -1) {
-          _categories[index] = result;
-        }
-      });
+      // Reload categories from database
+      await _loadCategories();
     }
   }
 
@@ -219,40 +242,83 @@ class _CategoriesScreenState extends State<CategoriesScreen> {
           const SizedBox(width: AppDimensions.paddingSmall),
         ],
       ),
-      body: ReorderableListView.builder(
-        padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-        itemCount: _categories.length,
-        onReorder: _reorderCategories,
-        proxyDecorator: (child, index, animation) {
-          return AnimatedBuilder(
-            animation: animation,
-            builder: (context, child) {
-              final double animValue =
-                  Curves.easeInOut.transform(animation.value);
-              return Material(
-                color: Colors.transparent,
-                elevation: 8 + (animValue * 8),
-                shadowColor: AppColors.primary.withOpacity(0.3),
-                borderRadius:
-                    BorderRadius.circular(AppDimensions.borderRadiusLarge),
-                clipBehavior: Clip.antiAlias,
-                child: Opacity(
-                  opacity: 0.9 + (animValue * 0.1),
-                  child: child,
-                ),
-              );
-            },
-            child: child,
-          );
-        },
-        itemBuilder: (context, index) {
-          final category = _categories[index];
-          final isSelected = widget.selectedCategoryName == category.name;
+      body: _isLoading
+          ? const Center(
+              child: CircularProgressIndicator(
+                color: AppColors.primary,
+              ),
+            )
+          : _categories.isEmpty
+              ? Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(AppDimensions.paddingXLarge),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.category_outlined,
+                          size: 64,
+                          color: AppColors.grey.withOpacity(0.4),
+                        ),
+                        const SizedBox(height: AppDimensions.paddingLarge),
+                        Text(
+                          'Chưa có danh mục nào',
+                          style: R.styles.body(
+                            size: 16,
+                            color: AppColors.grey,
+                            weight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppDimensions.paddingSmall),
+                        Text(
+                          'Nhấn nút + để thêm danh mục mới',
+                          style: R.styles.body(
+                            size: 14,
+                            color: AppColors.grey,
+                            weight: FontWeight.w400,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : ReorderableListView.builder(
+                  padding: const EdgeInsets.all(AppDimensions.paddingLarge),
+                  itemCount: _categories.length,
+                  onReorder: _reorderCategories,
+                  proxyDecorator: (child, index, animation) {
+                    return AnimatedBuilder(
+                      animation: animation,
+                      builder: (context, child) {
+                        final double animValue =
+                            Curves.easeInOut.transform(animation.value);
+                        return Material(
+                          color: Colors.transparent,
+                          elevation: 8 + (animValue * 8),
+                          shadowColor: AppColors.primary.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(
+                              AppDimensions.borderRadiusLarge),
+                          clipBehavior: Clip.antiAlias,
+                          child: Opacity(
+                            opacity: 0.9 + (animValue * 0.1),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: child,
+                    );
+                  },
+                  itemBuilder: (context, index) {
+                    final category = _categories[index];
+                    final isSelected =
+                        widget.selectedCategoryName == category.name;
 
-          return _buildCategoryCard(category, index, isSelected);
-        },
-        buildDefaultDragHandles: false,
-      ),
+                    return _buildCategoryCard(category, index, isSelected);
+                  },
+                  buildDefaultDragHandles: false,
+                ),
       bottomNavigationBar: isSelectionMode
           ? null
           : CustomBottomNavigationBar(

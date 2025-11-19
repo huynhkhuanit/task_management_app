@@ -8,6 +8,7 @@ import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
 import '../services/profile_service.dart';
 import '../services/supabase_service.dart';
+import '../services/task_service.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
@@ -25,13 +26,20 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final _profileService = ProfileService();
+  final _taskService = TaskService();
   String? _userName;
   String? _avatarUrl;
+  List<Task> _todayTasks = [];
+  int _totalTasks = 0;
+  int _completedTasks = 0;
+  int _pendingTasks = 0;
+  int _overdueTasks = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadTasks();
   }
 
   Future<void> _loadUserInfo() async {
@@ -54,30 +62,31 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // Sample data
-  final List<Task> _todayTasks = [
-    Task(
-      id: '1',
-      title: 'Thiết kế màn hình Dashboard',
-      project: 'App Quản lý công việc',
-      time: DateTime(2023, 12, 5, 10, 0),
-      status: TaskStatus.pending,
-    ),
-    Task(
-      id: '2',
-      title: 'Họp team định kỳ',
-      project: 'Chung',
-      time: DateTime(2023, 12, 5, 9, 0),
-      status: TaskStatus.completed,
-    ),
-    Task(
-      id: '3',
-      title: 'Fix bug giao diện mobile',
-      project: 'Website Bán hàng',
-      time: DateTime(2023, 12, 5, 11, 0),
-      status: TaskStatus.pending,
-    ),
-  ];
+  Future<void> _loadTasks() async {
+    try {
+      // Load today's tasks
+      final today = DateTime.now();
+      final todayTasksList = await _taskService.getTasksByDate(today);
+
+      // Load all tasks for statistics
+      final allTasks = await _taskService.getTasks();
+      final overdueTasksList = await _taskService.getOverdueTasks();
+
+      if (mounted) {
+        setState(() {
+          _todayTasks = todayTasksList;
+          _totalTasks = allTasks.length;
+          _completedTasks =
+              allTasks.where((t) => t.status == TaskStatus.completed).length;
+          _pendingTasks =
+              allTasks.where((t) => t.status == TaskStatus.pending).length;
+          _overdueTasks = overdueTasksList.length;
+        });
+      }
+    } catch (e) {
+      // Silently handle error - UI will show empty state
+    }
+  }
 
   String _getGreeting() {
     final hour = DateTime.now().hour;
@@ -189,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: _buildSummaryCard(
                           'Tổng task',
-                          '25',
+                          '$_totalTasks',
                           AppColors.black,
                         ),
                       ),
@@ -197,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: _buildSummaryCard(
                           'Hoàn thành',
-                          '15',
+                          '$_completedTasks',
                           AppColors.black,
                         ),
                       ),
@@ -209,7 +218,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: _buildSummaryCard(
                           'Đang chờ',
-                          '5',
+                          '$_pendingTasks',
                           AppColors.black,
                         ),
                       ),
@@ -217,44 +226,46 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: _buildSummaryCard(
                           'Quá hạn',
-                          '5',
+                          '$_overdueTasks',
                           AppColors.error,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppDimensions.paddingXLarge),
-                  // Today's Tasks Section
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Công việc hôm nay',
-                        style: R.styles.heading2(
-                          color: AppColors.black,
-                          weight: FontWeight.w700,
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _currentIndex = 1; // Switch to Tasks tab
-                          });
-                        },
-                        child: Text(
-                          'Xem tất cả',
-                          style: R.styles.body(
-                            size: 14,
-                            weight: FontWeight.w500,
-                            color: AppColors.primary,
+                  // Today's Tasks Section - Only show if there are tasks
+                  if (_todayTasks.isNotEmpty) ...[
+                    const SizedBox(height: AppDimensions.paddingXLarge),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Công việc hôm nay',
+                          style: R.styles.heading2(
+                            color: AppColors.black,
+                            weight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppDimensions.paddingLarge),
-                  // Task List
-                  ..._todayTasks.map((task) => _buildTaskCard(task)),
+                        GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _currentIndex = 1; // Switch to Tasks tab
+                            });
+                          },
+                          child: Text(
+                            'Xem tất cả',
+                            style: R.styles.body(
+                              size: 14,
+                              weight: FontWeight.w500,
+                              color: AppColors.primary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppDimensions.paddingLarge),
+                    // Task List
+                    ..._todayTasks.map((task) => _buildTaskCard(task)),
+                  ],
                   const SizedBox(height: AppDimensions.paddingXLarge),
                 ],
               ),
@@ -288,6 +299,10 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             _currentIndex = index;
           });
+          // Reload tasks when switching back to home tab
+          if (index == 0) {
+            _loadTasks();
+          }
         },
       ),
       floatingActionButton: _currentIndex == 1
@@ -310,12 +325,14 @@ class _HomeScreenState extends State<HomeScreen> {
           : _currentIndex == 0
               ? FloatingActionButton(
                   heroTag: 'home_fab_home',
-                  onPressed: () {
-                    Navigator.of(context).push(
+                  onPressed: () async {
+                    await Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (context) => const AddTaskScreen(),
                       ),
                     );
+                    // Reload tasks when returning from AddTaskScreen
+                    _loadTasks();
                   },
                   backgroundColor: AppColors.primary,
                   elevation: 0,
@@ -361,8 +378,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTaskCard(Task task) {
     final isCompleted = task.status == TaskStatus.completed;
-    final hour = task.time.hour;
-    final minute = task.time.minute;
+    // Use dueDate if available, otherwise use time
+    final taskDateTime = task.dueDate ?? task.time;
+    final hour = taskDateTime.hour;
+    final minute = taskDateTime.minute;
     final period = hour >= 12 ? 'PM' : 'AM';
     final displayHour = hour > 12 ? hour - 12 : (hour == 0 ? 12 : hour);
     final timeString =
@@ -387,21 +406,30 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Checkbox
             GestureDetector(
-              onTap: () {
-                setState(() {
-                  final index = _todayTasks.indexWhere((t) => t.id == task.id);
-                  if (index != -1) {
-                    _todayTasks[index] = Task(
-                      id: task.id,
-                      title: task.title,
-                      project: task.project,
-                      time: task.time,
-                      status: isCompleted
-                          ? TaskStatus.pending
-                          : TaskStatus.completed,
+              onTap: () async {
+                try {
+                  final newStatus =
+                      isCompleted ? TaskStatus.pending : TaskStatus.completed;
+
+                  // Update task status in database
+                  await _taskService.updateTask(
+                    taskId: task.id,
+                    status: newStatus,
+                  );
+
+                  // Reload tasks to reflect changes
+                  await _loadTasks();
+                } catch (e) {
+                  // Show error message if update fails
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('Lỗi cập nhật task: ${e.toString()}'),
+                        backgroundColor: AppColors.error,
+                      ),
                     );
                   }
-                });
+                }
               },
               child: Container(
                 width: 24,

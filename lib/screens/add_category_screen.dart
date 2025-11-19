@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/category_model.dart';
+import '../services/category_service.dart';
 
 class AddCategoryScreen extends StatefulWidget {
   final Category? categoryToEdit;
@@ -16,9 +17,11 @@ class AddCategoryScreen extends StatefulWidget {
 }
 
 class _AddCategoryScreenState extends State<AddCategoryScreen> {
+  final _categoryService = CategoryService();
   final TextEditingController _nameController = TextEditingController();
   Color _selectedColor = AppColors.primary;
   IconData _selectedIcon = Icons.work_outline;
+  bool _isSaving = false;
 
   final List<Color> _colors = [
     AppColors.primary, // Blue
@@ -60,7 +63,7 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
     super.dispose();
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Vui lòng nhập tên danh mục')),
@@ -68,17 +71,80 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
       return;
     }
 
-    final category = Category(
-      id: widget.categoryToEdit?.id ??
-          DateTime.now().millisecondsSinceEpoch.toString(),
-      name: _nameController.text.trim(),
-      icon: _selectedIcon,
-      color: _selectedColor,
-      taskCount: widget.categoryToEdit?.taskCount ?? 0,
-      order: widget.categoryToEdit?.order ?? 0,
-    );
+    setState(() {
+      _isSaving = true;
+    });
 
-    Navigator.of(context).pop(category);
+    try {
+      final iconName = _iconDataToIconName(_selectedIcon);
+      final colorHex = _colorToHex(_selectedColor);
+
+      Category category;
+      if (widget.categoryToEdit != null) {
+        // Update existing category
+        category = await _categoryService.updateCategory(
+          categoryId: widget.categoryToEdit!.id,
+          name: _nameController.text.trim(),
+          iconName: iconName,
+          colorHex: colorHex,
+        );
+      } else {
+        // Create new category
+        category = await _categoryService.createCategory(
+          name: _nameController.text.trim(),
+          iconName: iconName,
+          colorHex: colorHex,
+        );
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop(category);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              widget.categoryToEdit != null
+                  ? 'Đã cập nhật danh mục'
+                  : 'Đã tạo danh mục mới',
+            ),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  String _iconDataToIconName(IconData icon) {
+    // Map IconData to icon name based on codePoint
+    final iconMap = {
+      Icons.work_outline.codePoint: 'work_outline',
+      Icons.person_outline.codePoint: 'person_outline',
+      Icons.star_outline.codePoint: 'star_outline',
+      Icons.bookmark_outline.codePoint: 'bookmark_outline',
+      Icons.shopping_cart_outlined.codePoint: 'shopping_cart_outlined',
+      Icons.flight_outlined.codePoint: 'flight_outlined',
+      Icons.favorite_outline.codePoint: 'favorite_outline',
+      Icons.home_outlined.codePoint: 'home_outlined',
+      Icons.lightbulb_outline.codePoint: 'lightbulb_outline',
+      Icons.school_outlined.codePoint: 'school_outlined',
+    };
+    return iconMap[icon.codePoint] ?? 'work_outline';
+  }
+
+  String _colorToHex(Color color) {
+    final hex = color.value.toRadixString(16).padLeft(8, '0').substring(2);
+    return '#$hex';
   }
 
   void _handleCancel() {
@@ -288,7 +354,7 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
                   const SizedBox(width: AppDimensions.paddingMedium),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _handleSave,
+                      onPressed: _isSaving ? null : _handleSave,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
@@ -303,14 +369,25 @@ class _AddCategoryScreenState extends State<AddCategoryScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        widget.categoryToEdit != null ? 'Lưu' : 'Thêm',
-                        style: R.styles.body(
-                          size: 16,
-                          weight: FontWeight.w600,
-                          color: AppColors.white,
-                        ),
-                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              widget.categoryToEdit != null ? 'Lưu' : 'Thêm',
+                              style: R.styles.body(
+                                size: 16,
+                                weight: FontWeight.w600,
+                                color: AppColors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
