@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter/foundation.dart';
 
 /// Supabase Service - Singleton để quản lý Supabase client
 class SupabaseService {
@@ -32,15 +33,41 @@ class SupabaseService {
             ? dartDefineKey
             : dotenv.env['SUPABASE_ANON_KEY']);
 
+    // Debug logging để kiểm tra credentials
+    if (kDebugMode) {
+      debugPrint('🔍 Checking Supabase credentials...');
+      debugPrint(
+          '  - Parameter URL: ${url != null ? "✅ Provided" : "❌ Not provided"}');
+      debugPrint(
+          '  - Dart-define URL: ${dartDefineUrl.isNotEmpty ? "✅ $dartDefineUrl" : "❌ Empty"}');
+      debugPrint(
+          '  - .env URL: ${dotenv.env['SUPABASE_URL'] != null ? "✅ ${dotenv.env['SUPABASE_URL']}" : "❌ Not found"}');
+      debugPrint('  - Final URL: ${supabaseUrl ?? "❌ NULL"}');
+      debugPrint(
+          '  - Parameter Key: ${anonKey != null ? "✅ Provided" : "❌ Not provided"}');
+      debugPrint(
+          '  - Dart-define Key: ${dartDefineKey.isNotEmpty ? "✅ ${dartDefineKey.substring(0, 20)}..." : "❌ Empty"}');
+      debugPrint(
+          '  - .env Key: ${dotenv.env['SUPABASE_ANON_KEY'] != null ? "✅ ${dotenv.env['SUPABASE_ANON_KEY']!.substring(0, 20)}..." : "❌ Not found"}');
+      debugPrint(
+          '  - Final Key: ${supabaseAnonKey != null ? "✅ ${supabaseAnonKey.substring(0, 20)}..." : "❌ NULL"}');
+    }
+
     if (supabaseUrl == null ||
         supabaseUrl.isEmpty ||
         supabaseAnonKey == null ||
         supabaseAnonKey.isEmpty) {
-      throw Exception('Supabase credentials chưa được cấu hình.\n'
+      final errorMsg = 'Supabase credentials chưa được cấu hình.\n'
           'Vui lòng:\n'
           '1. Tạo file .env với SUPABASE_URL và SUPABASE_ANON_KEY\n'
           '2. Hoặc build với --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...\n'
-          '3. Hoặc truyền url và anonKey vào initialize()');
+          '3. Hoặc truyền url và anonKey vào initialize()\n\n'
+          'Debug info:\n'
+          '- Dart-define URL: ${dartDefineUrl.isEmpty ? "Empty" : dartDefineUrl}\n'
+          '- .env URL: ${dotenv.env['SUPABASE_URL'] ?? "Not found"}\n'
+          '- Dart-define Key: ${dartDefineKey.isEmpty ? "Empty" : "${dartDefineKey.substring(0, 20)}..."}\n'
+          '- .env Key: ${dotenv.env['SUPABASE_ANON_KEY'] != null ? "${dotenv.env['SUPABASE_ANON_KEY']!.substring(0, 20)}..." : "Not found"}';
+      throw Exception(errorMsg);
     }
 
     await Supabase.initialize(

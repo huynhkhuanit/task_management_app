@@ -31,11 +31,25 @@ void main() async {
   try {
     await SupabaseService.initialize();
     debugPrint('✅ Supabase initialized successfully');
+
+    // Verify credentials were loaded correctly
+    final dartDefineUrl =
+        const String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+    final envUrl = dotenv.env['SUPABASE_URL'];
+    if (dartDefineUrl.isNotEmpty) {
+      debugPrint('✅ Using credentials from --dart-define');
+    } else if (envUrl != null && envUrl.isNotEmpty) {
+      debugPrint('✅ Using credentials from .env file');
+    } else {
+      debugPrint('⚠️  Warning: No credentials found in dart-define or .env');
+    }
   } catch (e) {
     debugPrint('❌ Error initializing Supabase: $e');
     debugPrint('⚠️  App will continue but Supabase features may not work');
     debugPrint(
         '💡 Make sure .env file exists with SUPABASE_URL and SUPABASE_ANON_KEY');
+    debugPrint(
+        '💡 Or build with --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...');
     // App will still run but Supabase features won't work
     // User will see error when trying to use Supabase features
   }
