@@ -18,13 +18,29 @@ class SupabaseService {
       return; // Đã khởi tạo rồi, không cần khởi tạo lại
     }
 
-    // Đọc từ .env nếu không được truyền vào
-    final supabaseUrl = url ?? dotenv.env['SUPABASE_URL'];
-    final supabaseAnonKey = anonKey ?? dotenv.env['SUPABASE_ANON_KEY'];
+    // Đọc từ .env hoặc dart-define (khi build với --dart-define)
+    // Ưu tiên: url/anonKey parameter > dart-define > .env file
+    final dartDefineUrl =
+        const String.fromEnvironment('SUPABASE_URL', defaultValue: '');
+    final supabaseUrl = url ??
+        (dartDefineUrl.isNotEmpty ? dartDefineUrl : dotenv.env['SUPABASE_URL']);
 
-    if (supabaseUrl == null || supabaseAnonKey == null) {
-      throw Exception('Supabase credentials chưa được cấu hình. '
-          'Vui lòng kiểm tra file .env hoặc truyền url và anonKey vào initialize().');
+    final dartDefineKey =
+        const String.fromEnvironment('SUPABASE_ANON_KEY', defaultValue: '');
+    final supabaseAnonKey = anonKey ??
+        (dartDefineKey.isNotEmpty
+            ? dartDefineKey
+            : dotenv.env['SUPABASE_ANON_KEY']);
+
+    if (supabaseUrl == null ||
+        supabaseUrl.isEmpty ||
+        supabaseAnonKey == null ||
+        supabaseAnonKey.isEmpty) {
+      throw Exception('Supabase credentials chưa được cấu hình.\n'
+          'Vui lòng:\n'
+          '1. Tạo file .env với SUPABASE_URL và SUPABASE_ANON_KEY\n'
+          '2. Hoặc build với --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...\n'
+          '3. Hoặc truyền url và anonKey vào initialize()');
     }
 
     await Supabase.initialize(

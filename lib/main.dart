@@ -9,11 +9,22 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Load environment variables from .env file
+  // Khi build app, file .env được bundle vào assets, cần load từ assets bundle
   try {
+    // Load từ assets bundle (file .env đã được thêm vào assets trong pubspec.yaml)
     await dotenv.load(fileName: ".env");
   } catch (e) {
-    debugPrint('Warning: Could not load .env file: $e');
-    debugPrint('Make sure .env file exists in the root directory');
+    debugPrint('Warning: Could not load .env file from assets: $e');
+    debugPrint('Attempting to load from file system (debug mode)...');
+    // Thử load từ file system (cho debug mode)
+    try {
+      await dotenv.load(fileName: ".env");
+    } catch (e2) {
+      debugPrint('Warning: Could not load .env file: $e2');
+      debugPrint(
+          'Make sure .env file exists and is included in assets in pubspec.yaml');
+      // Không throw error, sẽ fallback trong SupabaseService hoặc sử dụng dart-define
+    }
   }
 
   // Initialize Supabase (will read from .env or use provided values)

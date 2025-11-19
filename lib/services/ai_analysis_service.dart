@@ -7,8 +7,20 @@ import 'package:http/http.dart' as http;
 /// Sử dụng OpenAI API hoặc tương tự để phân tích và đưa ra insights
 class AIAnalysisService {
   // API endpoint - có thể là OpenAI hoặc custom AI service
-  String? get _apiUrl => dotenv.env['AI_API_URL'] ?? 'https://api.openai.com/v1/chat/completions';
-  String? get _apiKey => dotenv.env['AI_API_KEY'];
+  // Hỗ trợ cả dart-define và .env file
+  String? get _apiUrl {
+    final dartDefineUrl = const String.fromEnvironment('AI_API_URL', defaultValue: '');
+    return dartDefineUrl.isNotEmpty 
+        ? dartDefineUrl 
+        : (dotenv.env['AI_API_URL'] ?? 'https://api.openai.com/v1/chat/completions');
+  }
+  
+  String? get _apiKey {
+    final dartDefineKey = const String.fromEnvironment('AI_API_KEY', defaultValue: '');
+    return dartDefineKey.isNotEmpty 
+        ? dartDefineKey 
+        : dotenv.env['AI_API_KEY'];
+  }
   
   /// Phân tích dữ liệu thống kê và trả về insights từ AI
   /// 
