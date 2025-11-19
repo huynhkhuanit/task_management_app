@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import '../models/attachment_model.dart';
 import '../utils/navigation_helper.dart';
 import '../services/task_service.dart';
 import '../services/category_service.dart';
+import '../services/attachment_service.dart';
 import 'edit_task_screen.dart';
 
 class TaskDetailScreen extends StatefulWidget {
@@ -22,12 +24,13 @@ class TaskDetailScreen extends StatefulWidget {
 class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final _taskService = TaskService();
   final _categoryService = CategoryService();
+  final _attachmentService = AttachmentService();
 
   late Task _task;
   String? _categoryName;
   bool _isLoading = true;
   List<SubTask> _subTasks = [];
-  final List<Attachment> _attachments = [];
+  List<Attachment> _attachments = [];
 
   @override
   void initState() {
@@ -67,13 +70,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }).toList();
 
-      // TODO: Load attachments from database
+      // Load attachments from database
+      List<Attachment> attachments = [];
+      try {
+        attachments =
+            await _attachmentService.getAttachmentsByTaskId(updatedTask.id);
+      } catch (e) {
+        // Ignore error, keep attachments empty
+        debugPrint('Lỗi load attachments: ${e.toString()}');
+      }
 
       if (mounted) {
         setState(() {
           _task = updatedTask;
           _categoryName = categoryName;
           _subTasks = subtasks;
+          _attachments = attachments;
           _isLoading = false;
         });
       }
@@ -931,20 +943,4 @@ class SubTask {
   });
 }
 
-enum FileType {
-  pdf,
-  image,
-  word,
-  excel,
-  other,
-}
-
-class Attachment {
-  final String fileName;
-  final FileType fileType;
-
-  Attachment({
-    required this.fileName,
-    required this.fileType,
-  });
-}
+// Attachment and FileType are now imported from attachment_model.dart

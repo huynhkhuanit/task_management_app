@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/task_model.dart';
+import '../models/attachment_model.dart';
 import '../utils/navigation_helper.dart';
+import '../services/task_service.dart';
+import '../services/category_service.dart';
 import 'categories_screen.dart';
 
 class EditTaskScreen extends StatefulWidget {
@@ -18,33 +21,73 @@ class EditTaskScreen extends StatefulWidget {
 }
 
 class _EditTaskScreenState extends State<EditTaskScreen> {
+  final _taskService = TaskService();
+  final _categoryService = CategoryService();
+  
   late TextEditingController _titleController;
   late TextEditingController _descriptionController;
   bool _reminderEnabled = true;
-  String _selectedCategory = 'Thiết kế';
-  DateTime _selectedDate = DateTime.now();
-  TimeOfDay _selectedTime = const TimeOfDay(hour: 15, minute: 0);
-  TaskPriority _selectedPriority = TaskPriority.high;
+  String? _selectedCategory;
+  String? _selectedCategoryId;
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+  TaskPriority _selectedPriority = TaskPriority.medium;
+  bool _isLoading = true;
+  bool _isSaving = false;
 
-  final List<Attachment> _attachments = [
-    Attachment(
-      fileName: 'tailieu_thiet_ke.pdf',
-      fileType: FileType.pdf,
-      fileSize: '1.2 MB',
-    ),
-  ];
+  final List<Attachment> _attachments = [];
 
   @override
   void initState() {
     super.initState();
-    _titleController = TextEditingController(
-      text: widget.task.title,
-    );
-    _descriptionController = TextEditingController(
-      text:
-          'Hoàn thiện thiết kế UI/UX cho màn hình thông tin người dùng, bao gồm ảnh đại diện, thông tin cá nhân và các mục cài đặt liên quan.',
-    );
-    _selectedPriority = widget.task.priority;
+    _loadTaskData();
+  }
+
+  Future<void> _loadTaskData() async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+
+      // Load task details from database
+      final task = await _taskService.getTaskById(widget.task.id);
+      
+      // Load category name if exists
+      if (task.categoryId != null) {
+        try {
+          final category = await _categoryService.getCategoryById(task.categoryId!);
+          _selectedCategory = category.name;
+          _selectedCategoryId = category.id;
+        } catch (e) {
+          // Category not found
+        }
+      }
+
+      _titleController = TextEditingController(text: task.title);
+      _descriptionController = TextEditingController(text: task.description ?? '');
+      _selectedPriority = task.priority;
+      _selectedDate = task.dueDate;
+      if (task.dueDate != null) {
+        _selectedTime = TimeOfDay.fromDateTime(task.dueDate!);
+      }
+
+      setState(() {
+        _isLoading = false;
+      });
+    } catch (e) {
+      // Use widget.task as fallback
+      _titleController = TextEditingController(text: widget.task.title);
+      _descriptionController = TextEditingController(text: widget.task.description ?? '');
+      _selectedPriority = widget.task.priority;
+      _selectedDate = widget.task.dueDate;
+      if (widget.task.dueDate != null) {
+        _selectedTime = TimeOfDay.fromDateTime(widget.task.dueDate!);
+      }
+      
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -80,7 +123,8 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     }
   }
 
-  String _formatDate(DateTime date) {
+  String _formatDate(DateTime? date) {
+    if (date == null) return 'Chọn ngày';
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final dateOnly = DateTime(date.year, date.month, date.day);
@@ -108,7 +152,8 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     }
   }
 
-  String _formatTime(TimeOfDay time) {
+  String _formatTime(TimeOfDay? time) {
+    if (time == null) return 'Chọn giờ';
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
   }
 
@@ -169,7 +214,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   Future<void> _selectTime() async {
     final TimeOfDay? picked = await showTimePicker(
       context: context,
-      initialTime: _selectedTime,
+      initialTime: _selectedTime ?? const TimeOfDay(hour: 12, minute: 0),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -264,7 +309,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     });
   }
 
-  void _handleSave() {
+  Future<void> _handleSave() async {
     if (_titleController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -274,14 +319,81 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
       );
       return;
     }
-    // TODO: Implement save logic
-    Navigator.of(context).pop(true); // Return true to indicate success
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã lưu công việc'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      // Get category ID from category name
+      String? categoryId = _selectedCategoryId;
+      if (_selectedCategory != null && _selectedCategory!.isNotEmpty && categoryId == null) {
+        try {
+          final categories = await _categoryService.getCategories();
+          final category = categories.firstWhere(
+            (c) => c.name == _selectedCategory,
+          );
+          categoryId = category.id;
+        } catch (e) {
+          // Category not found, continue without categoryId
+          categoryId = null;
+        }
+      }
+
+      // Combine date and time for dueDate
+      DateTime? dueDate;
+      if (_selectedDate != null && _selectedTime != null) {
+        dueDate = DateTime(
+          _selectedDate!.year,
+          _selectedDate!.month,
+          _selectedDate!.day,
+          _selectedTime!.hour,
+          _selectedTime!.minute,
+        );
+      }
+
+      // Calculate reminder time (15 minutes before due date if reminder is enabled)
+      DateTime? reminderTime;
+      if (_reminderEnabled && dueDate != null) {
+        reminderTime = dueDate.subtract(const Duration(minutes: 15));
+      }
+
+      // Update task in database
+      await _taskService.updateTask(
+        taskId: widget.task.id,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim().isEmpty
+            ? null
+            : _descriptionController.text.trim(),
+        categoryId: categoryId,
+        dueDate: dueDate,
+        priority: _selectedPriority,
+        reminderEnabled: _reminderEnabled,
+        reminderTime: reminderTime,
+      );
+
+      if (mounted) {
+        Navigator.of(context).pop(true); // Return true to indicate success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã lưu công việc'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi lưu công việc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _handleCancel() {
@@ -290,6 +402,31 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        backgroundColor: AppColors.white,
+        appBar: AppBar(
+          backgroundColor: AppColors.white,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close, color: AppColors.black),
+            onPressed: _handleCancel,
+          ),
+          title: Text(
+            'Chỉnh sửa công việc',
+            style: R.styles.heading2(
+              color: AppColors.black,
+              weight: FontWeight.w700,
+            ),
+          ),
+          centerTitle: true,
+        ),
+        body: const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: AppColors.white,
       appBar: AppBar(
@@ -423,7 +560,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                             icon: Icons.folder_outlined,
                             iconColor: AppColors.primary,
                             label: 'Danh mục',
-                            value: _selectedCategory,
+                            value: _selectedCategory ?? 'Chọn danh mục',
                             valueColor: AppColors.primary,
                             onTap: _showCategoryPicker,
                           ),
@@ -611,14 +748,13 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                                           color: AppColors.black,
                                         ),
                                       ),
-                                      if (attachment.fileSize != null)
-                                        Text(
-                                          attachment.fileSize!,
-                                          style: R.styles.body(
-                                            size: 14,
-                                            color: AppColors.grey,
-                                          ),
+                                      Text(
+                                        attachment.fileSize,
+                                        style: R.styles.body(
+                                          size: 14,
+                                          color: AppColors.grey,
                                         ),
+                                      ),
                                     ],
                                   ),
                                 ),
@@ -687,7 +823,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                   const SizedBox(width: AppDimensions.paddingSmall),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _handleSave,
+                      onPressed: _isSaving ? null : _handleSave,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: AppColors.white,
@@ -702,14 +838,25 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                         ),
                         elevation: 0,
                       ),
-                      child: Text(
-                        'Lưu',
-                        style: R.styles.body(
-                          size: 16,
-                          weight: FontWeight.w600,
-                          color: AppColors.white,
-                        ),
-                      ),
+                      child: _isSaving
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.white,
+                                ),
+                              ),
+                            )
+                          : Text(
+                              'Lưu',
+                              style: R.styles.body(
+                                size: 16,
+                                weight: FontWeight.w600,
+                                color: AppColors.white,
+                              ),
+                            ),
                     ),
                   ),
                 ],
@@ -798,7 +945,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
     required IconData icon,
     required Color iconColor,
     required String label,
-    required String value,
+    required String? value,
     required Color valueColor,
     required VoidCallback onTap,
   }) {
@@ -823,7 +970,7 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
               ),
             ),
             Text(
-              value,
+              value ?? '',
               style: R.styles.body(
                 size: 16,
                 weight: FontWeight.w600,
@@ -843,23 +990,4 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   }
 }
 
-// Attachment class with file size
-class Attachment {
-  final String fileName;
-  final FileType fileType;
-  final String? fileSize;
-
-  Attachment({
-    required this.fileName,
-    required this.fileType,
-    this.fileSize,
-  });
-}
-
-enum FileType {
-  pdf,
-  image,
-  word,
-  excel,
-  other,
-}
+// Attachment and FileType are imported from attachment_model.dart

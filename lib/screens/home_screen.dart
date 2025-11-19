@@ -38,12 +38,14 @@ class _HomeScreenState extends State<HomeScreen> {
   int _completedTasks = 0;
   int _pendingTasks = 0;
   int _overdueTasks = 0;
+  int _unreadNotificationCount = 0;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
     _loadTasks();
+    _loadNotificationCount();
   }
 
   Future<void> _loadUserInfo() async {
@@ -85,6 +87,9 @@ class _HomeScreenState extends State<HomeScreen> {
         debugPrint('Lỗi kiểm tra notifications: ${e.toString()}');
       }
 
+      // Reload notification count
+      await _loadNotificationCount();
+
       if (mounted) {
         setState(() {
           _todayTasks = todayTasksList;
@@ -121,10 +126,22 @@ class _HomeScreenState extends State<HomeScreen> {
     return 'Bạn';
   }
 
+  Future<void> _loadNotificationCount() async {
+    try {
+      final count = await _notificationService.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _unreadNotificationCount = count;
+        });
+      }
+    } catch (e) {
+      // Ignore error, keep count as 0
+      debugPrint('Lỗi load notification count: ${e.toString()}');
+    }
+  }
+
   int _getUnreadNotificationCount() {
-    // TODO: Replace with actual notification count from service/state
-    // For now, return a sample count (4 unread notifications)
-    return 4;
+    return _unreadNotificationCount;
   }
 
   Widget _buildHomeContent() {
