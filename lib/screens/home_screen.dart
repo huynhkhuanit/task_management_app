@@ -28,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final _profileService = ProfileService();
   final _taskService = TaskService();
   final GlobalKey _tasksScreenKey = GlobalKey();
+  final GlobalKey _statisticsScreenKey = GlobalKey();
   String? _userName;
   String? _avatarUrl;
   List<Task> _todayTasks = [];
@@ -292,7 +293,9 @@ class _HomeScreenState extends State<HomeScreen> {
             showBottomNavigationBar: false,
           ),
           // Statistics screen (index 2)
-          const StatisticsScreen(),
+          StatisticsScreen(
+            key: _statisticsScreenKey,
+          ),
           // Profile screen (index 3)
           const ProfileScreen(),
         ],
@@ -306,6 +309,14 @@ class _HomeScreenState extends State<HomeScreen> {
           // Reload tasks when switching back to home tab
           if (index == 0) {
             _loadTasks();
+          }
+          // Refresh statistics when switching to statistics tab
+          if (index == 2) {
+            final statisticsScreenState = _statisticsScreenKey.currentState;
+            if (statisticsScreenState != null &&
+                statisticsScreenState.mounted) {
+              (statisticsScreenState as dynamic).refreshStatistics();
+            }
           }
         },
       ),
