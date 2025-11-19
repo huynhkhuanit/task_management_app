@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import '../constants/app_constants.dart';
 import '../res/fonts/font_resources.dart';
 import '../models/notification_model.dart';
-import '../models/task_model.dart';
+import '../services/notification_service.dart';
+import '../services/task_service.dart';
 import '../utils/navigation_helper.dart';
 import 'task_detail_screen.dart';
 
@@ -14,115 +15,125 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  final List<NotificationItem> _notifications = [
-    NotificationItem(
-      id: '1',
-      type: NotificationType.overdue,
-      title: 'Quá hạn: Gửi email cho khách hàng',
-      description: 'Công việc này đã trễ 1 ngày. Vui lòng hoàn thành ngay.',
-      timestamp: DateTime.now().subtract(const Duration(days: 1)),
-      icon: Icons.error_outline,
-      iconColor: AppColors.error,
-    ),
-    NotificationItem(
-      id: '2',
-      type: NotificationType.upcoming,
-      title: 'Sắp tới hạn: Hoàn thành báo cáo tháng',
-      description: 'Công việc sẽ hết hạn vào 5:00 chiều nay.',
-      timestamp: DateTime.now().subtract(const Duration(minutes: 5)),
-      icon: Icons.access_time,
-      iconColor: const Color(0xFFD9957A), // Orange
-    ),
-    NotificationItem(
-      id: '3',
-      type: NotificationType.reminder,
-      title: 'Nhắc nhở: Họp team dự án X',
-      description: 'Cuộc họp sẽ bắt đầu lúc 10:00 sáng nay.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 1)),
-      icon: Icons.notifications_outlined,
-      iconColor: AppColors.primaryLight,
-    ),
-    NotificationItem(
-      id: '4',
-      type: NotificationType.newTask,
-      title: 'Bạn có công việc mới',
-      description: 'Chuẩn bị slide thuyết trình cho cuộc họp tuần tới.',
-      timestamp: DateTime.now().subtract(const Duration(hours: 3)),
-      icon: Icons.add_task,
-      iconColor: AppColors.success,
-    ),
-  ];
+  final _notificationService = NotificationService();
+  final _taskService = TaskService();
+  List<NotificationItem> _notifications = [];
+  bool _isLoading = true;
+  String? _errorMessage;
 
-  void _handleReadAll() {
-    setState(() {
-      // Mark all as read - in a real app, you would update the isRead property
-      // For now, we'll just show a message
-    });
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Đã đánh dấu tất cả là đã đọc'),
-      ),
-    );
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
   }
 
-  void _handleNotificationTap(NotificationItem notification) {
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      // Kiểm tra và tạo notifications mới trước khi load
+      // Điều này đảm bảo các notifications cho overdue/upcoming tasks được tạo tự động
+      try {
+        await _notificationService.checkAndCreateOverdueNotifications();
+        await _notificationService.checkAndCreateUpcomingNotifications();
+      } catch (e) {
+        // Log nhưng không fail - đây là background check
+        debugPrint('Lỗi kiểm tra notifications: ${e.toString()}');
+      }
+
+      // Load notifications từ database
+      final notifications = await _notificationService.getNotifications();
+      if (mounted) {
+        setState(() {
+          _notifications = notifications;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tải thông báo: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleReadAll() async {
+    try {
+      await _notificationService.markAllAsRead();
+      await _loadNotifications();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đã đánh dấu tất cả là đã đọc'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi đánh dấu đã đọc: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _handleNotificationTap(NotificationItem notification) async {
     // Mark notification as read
-    setState(() {
-      // In a real app, you would update the notification's isRead status
-      // For now, we'll just navigate
-    });
-
-    // Create a sample task from notification for navigation
-    // In a real app, you would fetch the actual task by taskId
-    final task = _createTaskFromNotification(notification);
-    
-    // Navigate to task detail screen
-    NavigationHelper.pushSlideTransition(
-      context,
-      TaskDetailScreen(task: task),
-    );
-  }
-
-  Task _createTaskFromNotification(NotificationItem notification) {
-    // Extract task title from notification title
-    String taskTitle = notification.title;
-    if (taskTitle.contains(': ')) {
-      taskTitle = taskTitle.split(': ')[1];
+    if (!notification.isRead) {
+      try {
+        await _notificationService.markAsRead(notification.id);
+        await _loadNotifications();
+      } catch (e) {
+        // Log error but continue with navigation
+        debugPrint('Lỗi đánh dấu đã đọc: ${e.toString()}');
+      }
     }
 
-    // Determine task status and priority based on notification type
-    TaskStatus status = TaskStatus.pending;
-    TaskPriority priority = TaskPriority.medium;
-    
-    switch (notification.type) {
-      case NotificationType.overdue:
-        status = TaskStatus.overdue;
-        priority = TaskPriority.urgent;
-        break;
-      case NotificationType.upcoming:
-        status = TaskStatus.pending;
-        priority = TaskPriority.high;
-        break;
-      case NotificationType.reminder:
-        status = TaskStatus.pending;
-        priority = TaskPriority.medium;
-        break;
-      case NotificationType.newTask:
-        status = TaskStatus.pending;
-        priority = TaskPriority.medium;
-        break;
+    // Navigate to task detail screen if task_id exists
+    if (notification.taskId != null) {
+      try {
+        final task = await _taskService.getTaskById(notification.taskId!);
+        if (mounted) {
+          NavigationHelper.pushSlideTransition(
+            context,
+            TaskDetailScreen(task: task),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi tải chi tiết công việc: ${e.toString()}'),
+              backgroundColor: AppColors.error,
+            ),
+          );
+        }
+      }
+    } else {
+      // No task_id, just show a message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Thông báo này không liên quan đến công việc cụ thể'),
+          ),
+        );
+      }
     }
-
-    return Task(
-      id: notification.id,
-      title: taskTitle,
-      project: 'Dự án',
-      time: notification.timestamp,
-      status: status,
-      dueDate: notification.timestamp.add(const Duration(days: 1)),
-      priority: priority,
-      tags: [],
-    );
   }
 
   Widget _buildNotificationIcon(NotificationItem notification) {
@@ -252,36 +263,70 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ],
       ),
       body: SafeArea(
-        child: _notifications.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.notifications_none,
-                      size: 64,
-                      color: AppColors.greyLight,
-                    ),
-                    const SizedBox(height: AppDimensions.paddingLarge),
-                    Text(
-                      'Không có thông báo',
-                      style: R.styles.body(
-                        size: 16,
-                        color: AppColors.grey,
-                      ),
-                    ),
-                  ],
-                ),
+        child: _isLoading
+            ? const Center(
+                child: CircularProgressIndicator(),
               )
-            : ListView.builder(
-                padding: const EdgeInsets.all(AppDimensions.paddingLarge),
-                itemCount: _notifications.length,
-                itemBuilder: (context, index) {
-                  return _buildNotificationItem(_notifications[index]);
-                },
-              ),
+            : _errorMessage != null
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: AppColors.error,
+                        ),
+                        const SizedBox(height: AppDimensions.paddingLarge),
+                        Text(
+                          'Lỗi tải thông báo',
+                          style: R.styles.body(
+                            size: 16,
+                            color: AppColors.error,
+                          ),
+                        ),
+                        const SizedBox(height: AppDimensions.paddingMedium),
+                        ElevatedButton(
+                          onPressed: _loadNotifications,
+                          child: const Text('Thử lại'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _notifications.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.notifications_none,
+                              size: 64,
+                              color: AppColors.greyLight,
+                            ),
+                            const SizedBox(height: AppDimensions.paddingLarge),
+                            Text(
+                              'Không có thông báo',
+                              style: R.styles.body(
+                                size: 16,
+                                color: AppColors.grey,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    : RefreshIndicator(
+                        onRefresh: _loadNotifications,
+                        child: ListView.builder(
+                          padding:
+                              const EdgeInsets.all(AppDimensions.paddingLarge),
+                          itemCount: _notifications.length,
+                          itemBuilder: (context, index) {
+                            return _buildNotificationItem(
+                                _notifications[index]);
+                          },
+                        ),
+                      ),
       ),
     );
   }
 }
-

@@ -9,6 +9,7 @@ import '../utils/navigation_helper.dart';
 import '../services/profile_service.dart';
 import '../services/supabase_service.dart';
 import '../services/task_service.dart';
+import '../services/notification_service.dart';
 import 'tasks_screen.dart';
 import 'add_task_screen.dart';
 import 'task_detail_screen.dart';
@@ -27,6 +28,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   final _profileService = ProfileService();
   final _taskService = TaskService();
+  final _notificationService = NotificationService();
   final GlobalKey _tasksScreenKey = GlobalKey();
   final GlobalKey _statisticsScreenKey = GlobalKey();
   String? _userName;
@@ -73,6 +75,15 @@ class _HomeScreenState extends State<HomeScreen> {
       // Load all tasks for statistics
       final allTasks = await _taskService.getTasks();
       final overdueTasksList = await _taskService.getOverdueTasks();
+
+      // Check and create notifications for overdue and upcoming tasks
+      try {
+        await _notificationService.checkAndCreateOverdueNotifications();
+        await _notificationService.checkAndCreateUpcomingNotifications();
+      } catch (e) {
+        // Log but don't fail - notifications are background checks
+        debugPrint('Lỗi kiểm tra notifications: ${e.toString()}');
+      }
 
       if (mounted) {
         setState(() {
@@ -155,7 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Text(
                         '${_getGreeting()}, ${_getDisplayName()}!',
-                        style: R.styles.heading2(
+                        style: R.styles.heading3(
                           color: AppColors.black,
                           weight: FontWeight.w700,
                         ),

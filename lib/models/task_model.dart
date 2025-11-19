@@ -22,6 +22,7 @@ class Task {
   final TaskPriority priority;
   final List<String> tags;
   final String? categoryId;
+  final DateTime? completedAt;
 
   Task({
     required this.id,
@@ -34,6 +35,7 @@ class Task {
     this.priority = TaskPriority.medium,
     this.tags = const [],
     this.categoryId,
+    this.completedAt,
   });
 }
 

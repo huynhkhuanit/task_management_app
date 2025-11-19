@@ -6,6 +6,7 @@ import '../widgets/notification_badge.dart';
 import '../utils/navigation_helper.dart';
 import '../services/profile_service.dart';
 import '../services/supabase_service.dart';
+import '../services/notification_service.dart';
 import 'edit_profile_screen.dart';
 import 'change_password_screen.dart';
 import 'notifications_screen.dart';
@@ -20,12 +21,15 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   final _profileService = ProfileService();
+  final _notificationService = NotificationService();
   bool _isDarkMode = false;
   String _selectedLanguage = 'Tiếng Việt';
+  String _selectedLanguageCode = 'vi';
   String? _fullName;
   String? _email;
   String? _phoneNumber;
   String? _avatarUrl;
+  int _unreadNotificationCount = 0;
   bool _isLoading = true;
 
   @override
@@ -38,15 +42,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final profile = await _profileService.getProfile();
       final user = SupabaseService.currentUser;
-      
+
+      // Load unread notification count
+      int unreadCount = 0;
+      try {
+        unreadCount = await _notificationService.getUnreadCount();
+      } catch (e) {
+        // Ignore error, keep count as 0
+      }
+
+      final lang = profile['language'] as String? ?? 'vi';
+
       setState(() {
         _fullName = profile['full_name'] as String?;
         _phoneNumber = profile['phone_number'] as String?;
         _avatarUrl = profile['avatar_url'] as String?;
         _email = user?.email;
         _isDarkMode = profile['dark_mode'] as bool? ?? false;
-        final lang = profile['language'] as String? ?? 'vi';
+        _selectedLanguageCode = lang;
         _selectedLanguage = _getLanguageName(lang);
+        _unreadNotificationCount = unreadCount;
         _isLoading = false;
       });
     } catch (e) {
@@ -77,10 +92,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  int _getUnreadNotificationCount() {
-    // TODO: Replace with actual notification count from service/state
-    // For now, return a sample count (4 unread notifications)
-    return 4;
+  String _getLanguageCode(String name) {
+    switch (name) {
+      case 'Tiếng Việt':
+        return 'vi';
+      case 'English':
+        return 'en';
+      case '中文':
+        return 'zh';
+      case '日本語':
+        return 'ja';
+      default:
+        return 'vi';
+    }
   }
 
   @override
@@ -150,14 +174,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           bottom: 0,
                           right: 0,
                           child: GestureDetector(
-                            onTap: () {
-                              NavigationHelper.pushSlideTransition(
+                            onTap: () async {
+                              final result =
+                                  await NavigationHelper.pushSlideTransition(
                                 context,
-                                const EditProfileScreen(
-                                  initialName: 'Lê Huỳnh Đức',
-                                  initialEmail: 'lehuynhduc@email.com',
+                                EditProfileScreen(
+                                  initialName: _fullName ?? '',
+                                  initialEmail: _email ?? '',
+                                  initialPhone: _phoneNumber ?? '',
                                 ),
                               );
+                              if (result == true) {
+                                _loadProfile();
+                              }
                             },
                             child: Container(
                               width: 32,
@@ -184,7 +213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // Name
                     Text(
-                      'Lê Huỳnh Đức',
+                      _fullName ?? 'Chưa có tên',
                       style: R.styles.heading2(
                         color: AppColors.black,
                         weight: FontWeight.w700,
@@ -194,7 +223,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                     // Email
                     Text(
-                      'lehuynhduc@email.com',
+                      _email ?? 'Chưa có email',
                       style: R.styles.body(
                         size: 14,
                         color: AppColors.grey,
@@ -217,7 +246,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.person_outline,
                       title: 'Chỉnh sửa thông tin',
                       onTap: () async {
-                        final result = await NavigationHelper.pushSlideTransition(
+                        final result =
+                            await NavigationHelper.pushSlideTransition(
                           context,
                           EditProfileScreen(
                             initialName: _fullName ?? '',
@@ -250,11 +280,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       icon: Icons.dark_mode_outlined,
                       title: 'Chế độ Tối',
                       value: _isDarkMode,
-                      onChanged: (value) {
-                        setState(() {
-                          _isDarkMode = value;
-                        });
-                        // TODO: Implement dark mode
+                      onChanged: (value) async {
+                        try {
+                          await _profileService.updateProfile(darkMode: value);
+                          setState(() {
+                            _isDarkMode = value;
+                          });
+                          // TODO: Implement dark mode theme switching
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Lỗi cập nhật chế độ tối: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),
@@ -263,12 +306,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _buildMenuItemWithBadge(
                       icon: Icons.notifications_outlined,
                       title: 'Thông báo',
-                      badgeCount: _getUnreadNotificationCount(),
-                      onTap: () {
-                        NavigationHelper.pushSlideTransition(
+                      badgeCount: _unreadNotificationCount,
+                      onTap: () async {
+                        await NavigationHelper.pushSlideTransition(
                           context,
                           const NotificationsScreen(),
                         );
+                        // Reload notification count after returning
+                        _loadProfile();
                       },
                     ),
                     const SizedBox(height: AppDimensions.paddingSmall),
@@ -641,15 +686,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  void _performLogout() {
-    // TODO: Clear user session, tokens, etc.
-    // Navigate to login screen and clear navigation stack
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (context) => const LoginScreen(),
-      ),
-      (route) => false,
-    );
+  Future<void> _performLogout() async {
+    try {
+      // Sign out from Supabase
+      await SupabaseService.signOut();
+
+      // Navigate to login screen and clear navigation stack
+      if (mounted) {
+        Navigator.of(context).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => const LoginScreen(),
+          ),
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi đăng xuất: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    }
   }
 
   void _showLanguageSelection() {
@@ -686,20 +746,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       leading: Radio<String>(
                         value: language,
                         groupValue: _selectedLanguage,
-                        onChanged: (value) {
-                          setModalState(() {
-                            _selectedLanguage = value!;
-                          });
-                          setState(() {
-                            _selectedLanguage = value!;
-                          });
-                          Navigator.of(context).pop();
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text('Đã chọn: $language'),
-                            ),
-                          );
-                          // TODO: Implement language change logic
+                        onChanged: (value) async {
+                          final languageCode = _getLanguageCode(value!);
+                          try {
+                            await _profileService.updateProfile(
+                                language: languageCode);
+                            setModalState(() {
+                              _selectedLanguage = value;
+                            });
+                            setState(() {
+                              _selectedLanguage = value;
+                              _selectedLanguageCode = languageCode;
+                            });
+                            Navigator.of(context).pop();
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Đã chọn: $value'),
+                                ),
+                              );
+                            }
+                            // TODO: Implement language change logic (localization)
+                          } catch (e) {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                      'Lỗi cập nhật ngôn ngữ: ${e.toString()}'),
+                                  backgroundColor: AppColors.error,
+                                ),
+                              );
+                            }
+                          }
                         },
                         activeColor: AppColors.primary,
                       ),
@@ -708,23 +786,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: R.styles.body(
                           size: 16,
                           color: AppColors.black,
-                          weight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                          weight:
+                              isSelected ? FontWeight.w600 : FontWeight.normal,
                         ),
                       ),
-                      onTap: () {
-                        setModalState(() {
-                          _selectedLanguage = language;
-                        });
-                        setState(() {
-                          _selectedLanguage = language;
-                        });
-                        Navigator.of(context).pop();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Đã chọn: $language'),
-                          ),
-                        );
-                        // TODO: Implement language change logic
+                      onTap: () async {
+                        final languageCode = _getLanguageCode(language);
+                        try {
+                          await _profileService.updateProfile(
+                              language: languageCode);
+                          setModalState(() {
+                            _selectedLanguage = language;
+                          });
+                          setState(() {
+                            _selectedLanguage = language;
+                            _selectedLanguageCode = languageCode;
+                          });
+                          Navigator.of(context).pop();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Đã chọn: $language'),
+                              ),
+                            );
+                          }
+                          // TODO: Implement language change logic (localization)
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                    'Lỗi cập nhật ngôn ngữ: ${e.toString()}'),
+                                backgroundColor: AppColors.error,
+                              ),
+                            );
+                          }
+                        }
                       },
                     );
                   }),

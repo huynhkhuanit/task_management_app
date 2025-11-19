@@ -124,6 +124,29 @@ class NotificationService {
     }
   }
   
+  /// Tạo notification mới
+  Future<void> createNotification({
+    required String? taskId,
+    required NotificationType type,
+    required String title,
+    String? description,
+  }) async {
+    try {
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('Chưa đăng nhập');
+      
+      await _client.from('notifications').insert({
+        'user_id': userId,
+        'task_id': taskId,
+        'type': _notificationTypeToString(type),
+        'title': title,
+        'description': description,
+      });
+    } catch (e) {
+      throw Exception('Lỗi tạo notification: ${e.toString()}');
+    }
+  }
+
   // Helper methods
   NotificationItem _notificationFromJson(Map<String, dynamic> json) {
     final notificationType = _stringToNotificationType(json['type'] as String);
@@ -136,7 +159,21 @@ class NotificationService {
       isRead: json['is_read'] as bool? ?? false,
       iconColor: _getIconColorForType(notificationType),
       icon: _getIconForType(notificationType),
+      taskId: json['task_id'] as String?,
     );
+  }
+  
+  String _notificationTypeToString(NotificationType type) {
+    switch (type) {
+      case NotificationType.overdue:
+        return 'overdue';
+      case NotificationType.upcoming:
+        return 'upcoming';
+      case NotificationType.reminder:
+        return 'reminder';
+      case NotificationType.newTask:
+        return 'newTask';
+    }
   }
   
   NotificationType _stringToNotificationType(String type) {
@@ -177,6 +214,114 @@ class NotificationService {
         return const Color(0xFF4FD1C7); // Teal
       case NotificationType.newTask:
         return const Color(0xFF10B981); // Green
+    }
+  }
+  
+  /// Kiểm tra và tạo notifications cho tasks quá hạn
+  Future<void> checkAndCreateOverdueNotifications() async {
+    try {
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('Chưa đăng nhập');
+      
+      // Lấy tasks quá hạn chưa có notification trong 24h qua
+      final now = DateTime.now();
+      final yesterday = now.subtract(const Duration(days: 1));
+      
+      final overdueTasks = await _client
+          .from('tasks')
+          .select()
+          .eq('user_id', userId)
+          .lt('due_date', now.toIso8601String())
+          .neq('status', 'completed');
+      
+      // Filter out tasks with null due_date (comparison operators already exclude them, but be explicit)
+      final validOverdueTasks = (overdueTasks as List).where((task) => task['due_date'] != null).toList();
+      
+      for (var task in validOverdueTasks) {
+        final taskId = task['id'] as String;
+        
+        // Kiểm tra xem đã có notification cho task này trong 24h qua chưa
+        final existingNotifications = await _client
+            .from('notifications')
+            .select()
+            .eq('user_id', userId)
+            .eq('task_id', taskId)
+            .eq('type', 'overdue')
+            .gte('created_at', yesterday.toIso8601String());
+        
+        if ((existingNotifications as List).isEmpty) {
+          await createNotification(
+            taskId: taskId,
+            type: NotificationType.overdue,
+            title: 'Quá hạn: ${task['title']}',
+            description: 'Công việc này đã quá hạn. Vui lòng hoàn thành ngay.',
+          );
+        }
+      }
+    } catch (e) {
+      // Log error but don't throw - this is a background check
+      debugPrint('Lỗi kiểm tra overdue notifications: ${e.toString()}');
+    }
+  }
+  
+  /// Kiểm tra và tạo notifications cho tasks sắp tới hạn (trong 24h)
+  Future<void> checkAndCreateUpcomingNotifications() async {
+    try {
+      final userId = SupabaseService.currentUserId;
+      if (userId == null) throw Exception('Chưa đăng nhập');
+      
+      final now = DateTime.now();
+      final tomorrow = now.add(const Duration(days: 1));
+      
+      final upcomingTasks = await _client
+          .from('tasks')
+          .select()
+          .eq('user_id', userId)
+          .gte('due_date', now.toIso8601String())
+          .lte('due_date', tomorrow.toIso8601String())
+          .neq('status', 'completed');
+      
+      // Filter out tasks with null due_date
+      final validUpcomingTasks = (upcomingTasks as List).where((task) => task['due_date'] != null).toList();
+      
+      for (var task in validUpcomingTasks) {
+        final taskId = task['id'] as String;
+        final dueDate = DateTime.parse(task['due_date'] as String);
+        
+        // Chỉ tạo notification nếu còn ít hơn 24h
+        if (dueDate.difference(now).inHours < 24) {
+          // Kiểm tra xem đã có notification cho task này trong 12h qua chưa
+          final twelveHoursAgo = now.subtract(const Duration(hours: 12));
+          final existingNotifications = await _client
+              .from('notifications')
+              .select()
+              .eq('user_id', userId)
+              .eq('task_id', taskId)
+              .eq('type', 'upcoming')
+              .gte('created_at', twelveHoursAgo.toIso8601String());
+          
+          if ((existingNotifications as List).isEmpty) {
+            final hoursUntilDue = dueDate.difference(now).inHours;
+            String description;
+            if (hoursUntilDue < 1) {
+              final minutesUntilDue = dueDate.difference(now).inMinutes;
+              description = 'Công việc sẽ hết hạn sau ${minutesUntilDue} phút.';
+            } else {
+              description = 'Công việc sẽ hết hạn sau ${hoursUntilDue} giờ.';
+            }
+            
+            await createNotification(
+              taskId: taskId,
+              type: NotificationType.upcoming,
+              title: 'Sắp tới hạn: ${task['title']}',
+              description: description,
+            );
+          }
+        }
+      }
+    } catch (e) {
+      // Log error but don't throw - this is a background check
+      debugPrint('Lỗi kiểm tra upcoming notifications: ${e.toString()}');
     }
   }
 }

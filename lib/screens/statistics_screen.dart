@@ -151,11 +151,11 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ));
       }
 
-      // Calculate completion data based on period
-      _calculateCompletionData(filteredTasks);
+      // Calculate completion data based on period - use allTasks to include all completed tasks
+      _calculateCompletionData(allTasks);
 
-      // Calculate performance trend based on period
-      _calculatePerformanceTrend(filteredTasks);
+      // Calculate performance trend based on period - use allTasks to include all tasks
+      _calculatePerformanceTrend(allTasks);
 
       if (mounted) {
         setState(() {
@@ -205,25 +205,35 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     switch (_selectedPeriod) {
       case 0: // Tuần (Week)
-        final weekStart = now.subtract(Duration(days: now.weekday - 1));
+        // Calculate week start (Monday)
+        final daysFromMonday = (now.weekday - 1) % 7;
+        final weekStart =
+            DateTime(now.year, now.month, now.day - daysFromMonday);
         startDate = DateTime(weekStart.year, weekStart.month, weekStart.day);
         daysCount = 7;
         _weeklyData = [];
         final daysOfWeek = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
         for (int i = 0; i < daysCount; i++) {
-          final dayStart =
+          final currentDay =
               DateTime(startDate.year, startDate.month, startDate.day + i);
-          final dayEnd = dayStart.add(const Duration(days: 1));
+          final dayStart =
+              DateTime(currentDay.year, currentDay.month, currentDay.day);
 
+          // Count completed tasks that were completed on this day
           final completedCount = tasks.where((task) {
             if (task.status != TaskStatus.completed) return false;
-            if (task.dueDate != null) {
-              final dueDate = task.dueDate!;
-              return dueDate
-                      .isAfter(dayStart.subtract(const Duration(days: 1))) &&
-                  dueDate.isBefore(dayEnd);
-            }
-            return false;
+            // Use completedAt if available, otherwise fallback to created_at (time)
+            final completionDate = task.completedAt ?? task.time;
+            // Normalize to date only (remove time component) for comparison
+            final completionDateOnly = DateTime(
+              completionDate.year,
+              completionDate.month,
+              completionDate.day,
+            );
+            // Check if completion date matches this day exactly
+            return completionDateOnly.year == dayStart.year &&
+                completionDateOnly.month == dayStart.month &&
+                completionDateOnly.day == dayStart.day;
           }).length;
 
           _weeklyData.add(BarData(
@@ -250,21 +260,20 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         }
         for (int i = 0; i < weeks.length && i < 5; i++) {
           final weekDays = weeks[i];
-          int completedCount = 0;
-          for (final day in weekDays) {
-            final dayStart = DateTime(now.year, now.month, day);
-            final dayEnd = dayStart.add(const Duration(days: 1));
-            completedCount += tasks.where((task) {
-              if (task.status != TaskStatus.completed) return false;
-              if (task.dueDate != null) {
-                final dueDate = task.dueDate!;
-                return dueDate
-                        .isAfter(dayStart.subtract(const Duration(days: 1))) &&
-                    dueDate.isBefore(dayEnd);
-              }
-              return false;
-            }).length;
-          }
+          final weekStart = DateTime(now.year, now.month, weekDays.first);
+          final weekEnd = DateTime(now.year, now.month, weekDays.last)
+              .add(const Duration(days: 1));
+
+          // Count completed tasks that were completed in this week
+          final completedCount = tasks.where((task) {
+            if (task.status != TaskStatus.completed) return false;
+            // Use completedAt if available, otherwise fallback to created_at (time)
+            final completionDate = task.completedAt ?? task.time;
+            return completionDate
+                    .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+                completionDate.isBefore(weekEnd);
+          }).length;
+
           _weeklyData.add(BarData(
             day: 'Tuần ${i + 1}',
             value: completedCount,
@@ -289,17 +298,19 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         ];
         for (int month = 1; month <= 12; month++) {
           final monthStart = DateTime(now.year, month, 1);
-          final monthEnd = DateTime(now.year, month + 1, 0);
+          final monthEnd =
+              DateTime(now.year, month + 1, 0).add(const Duration(days: 1));
+
+          // Count completed tasks that were completed in this month
           final completedCount = tasks.where((task) {
             if (task.status != TaskStatus.completed) return false;
-            if (task.dueDate != null) {
-              final dueDate = task.dueDate!;
-              return dueDate
-                      .isAfter(monthStart.subtract(const Duration(days: 1))) &&
-                  dueDate.isBefore(monthEnd.add(const Duration(days: 1)));
-            }
-            return false;
+            // Use completedAt if available, otherwise fallback to created_at (time)
+            final completionDate = task.completedAt ?? task.time;
+            return completionDate
+                    .isAfter(monthStart.subtract(const Duration(days: 1))) &&
+                completionDate.isBefore(monthEnd);
           }).length;
+
           _weeklyData.add(BarData(
             day: months[month - 1],
             value: completedCount,
@@ -315,21 +326,49 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     switch (_selectedPeriod) {
       case 0: // Tuần (Week) - 7 days
-        for (int i = 6; i >= 0; i--) {
-          final dayStart = DateTime(now.year, now.month, now.day - i);
-          final dayEnd = dayStart.add(const Duration(days: 1));
+        // Calculate week start (Monday)
+        final daysFromMonday = (now.weekday - 1) % 7;
+        final weekStart =
+            DateTime(now.year, now.month, now.day - daysFromMonday);
 
+        for (int i = 0; i < 7; i++) {
+          final currentDay =
+              DateTime(weekStart.year, weekStart.month, weekStart.day + i);
+          final dayStart =
+              DateTime(currentDay.year, currentDay.month, currentDay.day);
+
+          // Get tasks that were due or created on this day
           final dayTasks = tasks.where((task) {
-            if (task.dueDate == null) return false;
-            final dueDate = task.dueDate!;
-            return dueDate.isAfter(dayStart) && dueDate.isBefore(dayEnd);
+            // Use dueDate if available, otherwise use created_at (time)
+            final taskDate = task.dueDate ?? task.time;
+            final taskDateOnly = DateTime(
+              taskDate.year,
+              taskDate.month,
+              taskDate.day,
+            );
+            // Check if task date matches this day exactly
+            return taskDateOnly.year == dayStart.year &&
+                taskDateOnly.month == dayStart.month &&
+                taskDateOnly.day == dayStart.day;
           }).toList();
 
           if (dayTasks.isEmpty) {
             _performanceTrend.add(0.0);
           } else {
-            final completed =
-                dayTasks.where((t) => t.status == TaskStatus.completed).length;
+            // Count tasks completed on this day (using completedAt)
+            final completed = dayTasks.where((t) {
+              if (t.status != TaskStatus.completed) return false;
+              final completionDate = t.completedAt ?? t.time;
+              final completionDateOnly = DateTime(
+                completionDate.year,
+                completionDate.month,
+                completionDate.day,
+              );
+              // Check if completion date matches this day exactly
+              return completionDateOnly.year == dayStart.year &&
+                  completionDateOnly.month == dayStart.month &&
+                  completionDateOnly.day == dayStart.day;
+            }).length;
             final score = (completed / dayTasks.length) * 10;
             _performanceTrend.add(score);
           }
@@ -347,19 +386,25 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               monthStart.add(Duration(days: week * 7 - monthStart.weekday + 1));
           final weekEnd = weekStart.add(const Duration(days: 7));
 
+          // Get tasks that were due or created in this week
           final weekTasks = tasks.where((task) {
-            if (task.dueDate == null) return false;
-            final dueDate = task.dueDate!;
-            return dueDate
+            final taskDate = task.dueDate ?? task.time;
+            return taskDate
                     .isAfter(weekStart.subtract(const Duration(days: 1))) &&
-                dueDate.isBefore(weekEnd);
+                taskDate.isBefore(weekEnd);
           }).toList();
 
           if (weekTasks.isEmpty) {
             _performanceTrend.add(0.0);
           } else {
-            final completed =
-                weekTasks.where((t) => t.status == TaskStatus.completed).length;
+            // Count tasks completed in this week (using completedAt)
+            final completed = weekTasks.where((t) {
+              if (t.status != TaskStatus.completed) return false;
+              final completionDate = t.completedAt ?? t.time;
+              return completionDate
+                      .isAfter(weekStart.subtract(const Duration(days: 1))) &&
+                  completionDate.isBefore(weekEnd);
+            }).length;
             final score = (completed / weekTasks.length) * 10;
             _performanceTrend.add(score);
           }
@@ -368,22 +413,28 @@ class _StatisticsScreenState extends State<StatisticsScreen>
       case 2: // Năm (Year) - by months
         for (int month = 1; month <= 12; month++) {
           final monthStart = DateTime(now.year, month, 1);
-          final monthEnd = DateTime(now.year, month + 1, 0);
+          final monthEnd =
+              DateTime(now.year, month + 1, 0).add(const Duration(days: 1));
 
+          // Get tasks that were due or created in this month
           final monthTasks = tasks.where((task) {
-            if (task.dueDate == null) return false;
-            final dueDate = task.dueDate!;
-            return dueDate
+            final taskDate = task.dueDate ?? task.time;
+            return taskDate
                     .isAfter(monthStart.subtract(const Duration(days: 1))) &&
-                dueDate.isBefore(monthEnd.add(const Duration(days: 1)));
+                taskDate.isBefore(monthEnd);
           }).toList();
 
           if (monthTasks.isEmpty) {
             _performanceTrend.add(0.0);
           } else {
-            final completed = monthTasks
-                .where((t) => t.status == TaskStatus.completed)
-                .length;
+            // Count tasks completed in this month (using completedAt)
+            final completed = monthTasks.where((t) {
+              if (t.status != TaskStatus.completed) return false;
+              final completionDate = t.completedAt ?? t.time;
+              return completionDate
+                      .isAfter(monthStart.subtract(const Duration(days: 1))) &&
+                  completionDate.isBefore(monthEnd);
+            }).length;
             final score = (completed / monthTasks.length) * 10;
             _performanceTrend.add(score);
           }
@@ -803,6 +854,9 @@ class _StatisticsScreenState extends State<StatisticsScreen>
                 radius: 30,
               );
             }).toList(),
+            pieTouchData: PieTouchData(
+              enabled: true,
+            ),
           ),
         ),
         Column(
@@ -843,13 +897,68 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     final maxValue =
         _weeklyData.map((e) => e.value).reduce((a, b) => a > b ? a : b);
-    final todayIndex = DateTime.now().weekday - 1; // 0 = Monday, 6 = Sunday
+
+    // Calculate current index based on selected period
+    int? currentIndex;
+    final now = DateTime.now();
+
+    switch (_selectedPeriod) {
+      case 0: // Tuần (Week)
+        // Find index of today in the week (0-6, where 0 = Monday)
+        final daysFromMonday = (now.weekday - 1) % 7;
+        currentIndex = daysFromMonday;
+        break;
+      case 1: // Tháng (Month)
+        // Find index of current week in the month
+        final weeks = <List<int>>[];
+        int currentWeek = 0;
+        for (int day = 1;
+            day <= DateTime(now.year, now.month + 1, 0).day;
+            day++) {
+          final date = DateTime(now.year, now.month, day);
+          final weekday = date.weekday;
+          if (weekday == 1 || weeks.isEmpty) {
+            weeks.add([]);
+            currentWeek = weeks.length - 1;
+          }
+          weeks[currentWeek].add(day);
+          // Check if today is in this week
+          if (date.day == now.day) {
+            currentIndex = currentWeek;
+            break;
+          }
+        }
+        break;
+      case 2: // Năm (Year)
+        // Find index of current month (0-11)
+        currentIndex = now.month - 1;
+        break;
+    }
 
     return BarChart(
       BarChartData(
         alignment: BarChartAlignment.spaceAround,
         maxY: maxValue > 0 ? maxValue * 1.2 : 10,
-        barTouchData: BarTouchData(enabled: false),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipItem: (group, groupIndex, rodIndex, rodStackIndex) {
+              final index = groupIndex;
+              if (index >= 0 && index < _weeklyData.length) {
+                final data = _weeklyData[index];
+                return BarTooltipItem(
+                  '${data.day}: ${data.value} tasks',
+                  const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                );
+              }
+              return null;
+            },
+          ),
+        ),
         titlesData: FlTitlesData(
           show: true,
           bottomTitles: AxisTitles(
@@ -858,17 +967,16 @@ class _StatisticsScreenState extends State<StatisticsScreen>
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index >= 0 && index < _weeklyData.length) {
-                  final isCurrentDay = index == todayIndex;
+                  final isCurrent =
+                      currentIndex != null && index == currentIndex;
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       _weeklyData[index].day,
                       style: R.styles.body(
                         size: 12,
-                        weight:
-                            isCurrentDay ? FontWeight.w900 : FontWeight.w400,
-                        color:
-                            isCurrentDay ? AppColors.primary : AppColors.grey,
+                        weight: isCurrent ? FontWeight.w900 : FontWeight.w400,
+                        color: isCurrent ? AppColors.primary : AppColors.grey,
                       ),
                     ),
                   );
@@ -893,7 +1001,7 @@ class _StatisticsScreenState extends State<StatisticsScreen>
         barGroups: _weeklyData.asMap().entries.map((entry) {
           final index = entry.key;
           final data = entry.value;
-          final isHighlighted = index == todayIndex;
+          final isHighlighted = currentIndex != null && index == currentIndex;
           return BarChartGroupData(
             x: index,
             barRods: [
@@ -953,6 +1061,30 @@ class _StatisticsScreenState extends State<StatisticsScreen>
 
     return LineChart(
       LineChartData(
+        lineTouchData: LineTouchData(
+          enabled: true,
+          touchTooltipData: LineTouchTooltipData(
+            getTooltipColor: (spot) => AppColors.primary,
+            getTooltipItems: (List<LineBarSpot> touchedSpots) {
+              return touchedSpots.map((spot) {
+                final index = spot.x.toInt();
+                if (index >= 0 && index < _performanceTrend.length) {
+                  final value = _performanceTrend[index];
+                  final label = labels.length > index ? labels[index] : '';
+                  return LineTooltipItem(
+                    '$label\nĐiểm: ${value.toStringAsFixed(1)}',
+                    const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  );
+                }
+                return const LineTooltipItem('', TextStyle());
+              }).toList();
+            },
+          ),
+        ),
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
@@ -1050,4 +1182,26 @@ class BarData {
   final int value;
 
   BarData({required this.day, required this.value});
+}
+
+Widget _buildTooltip(String text) {
+  return Container(
+    padding: const EdgeInsets.symmetric(
+      horizontal: AppDimensions.paddingMedium,
+      vertical: AppDimensions.paddingSmall,
+    ),
+    decoration: BoxDecoration(
+      color: AppColors.black.withOpacity(0.8),
+      borderRadius: BorderRadius.circular(AppDimensions.borderRadiusMedium),
+    ),
+    child: Text(
+      text,
+      style: R.styles.body(
+        size: 12,
+        color: AppColors.white,
+        weight: FontWeight.w600,
+      ),
+      textAlign: TextAlign.center,
+    ),
+  );
 }

@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/task_model.dart';
+import '../models/notification_model.dart';
 import 'supabase_service.dart';
+import 'notification_service.dart';
 
 /// Task Service - Xử lý CRUD operations cho tasks
 class TaskService {
@@ -102,6 +105,20 @@ class TaskService {
         await _addTagsToTask(task.id, tags);
       }
 
+      // Tạo notification cho task mới
+      try {
+        final notificationService = NotificationService();
+        await notificationService.createNotification(
+          taskId: task.id,
+          type: NotificationType.newTask,
+          title: 'Bạn có công việc mới',
+          description: 'Công việc "${task.title}" đã được tạo.',
+        );
+      } catch (e) {
+        // Log error but don't fail task creation
+        debugPrint('Lỗi tạo notification: ${e.toString()}');
+      }
+
       return task;
     } catch (e) {
       throw Exception('Lỗi tạo task: ${e.toString()}');
@@ -153,6 +170,27 @@ class TaskService {
       // Cập nhật tags nếu có
       if (tags != null) {
         await _updateTaskTags(taskId, tags);
+      }
+
+      // Kiểm tra và tạo notifications sau khi cập nhật task
+      try {
+        final notificationService = NotificationService();
+        
+        // Nếu task được đánh dấu là completed, không cần tạo notifications mới
+        // Các notifications sẽ được tự động kiểm tra khi load notifications screen
+        
+        // Nếu due_date hoặc status thay đổi, kiểm tra lại notifications
+        if (dueDate != null || status != null) {
+          // Chờ một chút để đảm bảo database đã được cập nhật
+          await Future.delayed(const Duration(milliseconds: 100));
+          
+          // Kiểm tra lại overdue và upcoming notifications
+          await notificationService.checkAndCreateOverdueNotifications();
+          await notificationService.checkAndCreateUpcomingNotifications();
+        }
+      } catch (e) {
+        // Log nhưng không fail task update
+        debugPrint('Lỗi kiểm tra notifications sau khi update task: ${e.toString()}');
       }
 
       return task;
@@ -243,6 +281,9 @@ class TaskService {
       priority: _stringToPriority(json['priority'] as String),
       tags: [], // Tags sẽ được load riêng nếu cần
       categoryId: json['category_id'] as String?,
+      completedAt: json['completed_at'] != null
+          ? DateTime.parse(json['completed_at'] as String)
+          : null,
     );
   }
 

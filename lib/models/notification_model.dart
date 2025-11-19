@@ -16,6 +16,7 @@ class NotificationItem {
   final bool isRead;
   final Color? iconColor;
   final IconData icon;
+  final String? taskId; // ID của task liên quan (nếu có)
 
   NotificationItem({
     required this.id,
@@ -26,6 +27,7 @@ class NotificationItem {
     this.isRead = false,
     this.iconColor,
     required this.icon,
+    this.taskId,
   });
 
   String getTimeAgo() {
